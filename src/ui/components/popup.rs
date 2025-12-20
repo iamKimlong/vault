@@ -353,7 +353,7 @@ fn help_text() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             ("dd / x", "Delete credential"),
         ]),
         ("Clipboard", vec![
-            ("yy / c", "Copy password"),
+            ("yy / c", "Copy password (needs to open details first)"),
             ("u", "Copy username"),
             ("t", "Copy TOTP code"),
         ]),
