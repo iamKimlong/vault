@@ -13,6 +13,7 @@
 - **Strong Key Derivation:** Argon2id with 19 MiB memory cost
 - **Hierarchical Keys:** Master key → Project keys → Credential keys
 - **Full-Text Search:** SQLite FTS5 for fast search
+- **Search or filter by project/tag:** Organize your credentials and keys via tagging
 - **Vim Keybindings:** Modal editing with hjkl navigation
 - **TOTP Support:** Generate 2FA codes with countdown timer
 - **Password Generator:** Configurable CSPRNG password generation
