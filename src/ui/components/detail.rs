@@ -99,7 +99,7 @@ impl<'a> Widget for DetailView<'a> {
         }
 
         // TOTP
-        if let (Some(ref code), Some(remaining)) = (&self.detail.totp_code, self.detail.totp_remaining) {
+        if let (Some(code), Some(remaining)) = (&self.detail.totp_code, self.detail.totp_remaining) {
             render_field(buf, inner.x, &mut y, inner.width, "TOTP", &[
                 Span::styled(code, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
                 Span::styled(format!(" ({}s)", remaining), Style::default().fg(Color::DarkGray)),
