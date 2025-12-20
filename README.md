@@ -44,6 +44,7 @@ sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
 # Option 2: Cargo-managed install
 # --------------------------------
 cargo install --path .   # ensure ~/.cargo/bin is in PATH
+# Currently have bugs on Windows (unable to create password)
 ```
 
 <a name="usage"></a>
