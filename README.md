@@ -17,6 +17,7 @@
 - **Vim Keybindings:** Modal editing with hjkl navigation
 - **TOTP Support:** Generate 2FA codes with countdown timer
 - **Password Generator:** Configurable CSPRNG password generation
+- **Password Strength Checker:** Evaluates the security of user passwords in real-time, providing feedback on complexity, and length to help users create stronger, safer passwords.
 - **Audit Trail:** HMAC-signed logs for tamper detection
 - **Auto-lock:** Automatically lock vault-cli after 5 minutes of inactivity
 
