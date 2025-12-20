@@ -283,35 +283,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "credlock"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arboard",
- "argon2",
- "base64",
- "chacha20poly1305",
- "chrono",
- "crossterm",
- "dirs",
- "hex",
- "hkdf",
- "hmac",
- "rand",
- "ratatui",
- "rusqlite",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tempfile",
- "thiserror",
- "totp-rs",
- "uuid",
- "zeroize",
-]
-
-[[package]]
 name = "crossterm"
 version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1674,6 +1645,35 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "vault-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "argon2",
+ "base64",
+ "chacha20poly1305",
+ "chrono",
+ "crossterm",
+ "dirs",
+ "hex",
+ "hkdf",
+ "hmac",
+ "rand",
+ "ratatui",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "totp-rs",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]

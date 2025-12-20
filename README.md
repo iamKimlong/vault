@@ -13,7 +13,7 @@ A local-first encrypted credential manager with vim-style TUI, built in Rust.
 - **Password Generator**: Configurable CSPRNG password generation
 - **Audit Trail**: HMAC-signed logs for tamper detection
 
-## Building
+## Installation
 
 ```bash
 git clone https://github.com/iamKimlong/vaultcli
@@ -26,10 +26,10 @@ cd vaultcli
 cargo build --release
 
 # Local install (per-user)
-mv ./target/release/credlock ~/.local/bin/credlock
+mv ./target/release/vault-cli ~/.local/bin/vault-cli
 
 # System-wide install
-sudo install -m 755 target/release/credlock /usr/local/bin/credlock
+sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
 
 # --------------------------------
 # Option 2: Cargo-managed install

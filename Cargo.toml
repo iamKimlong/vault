@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Kimlong"]
 description = "A local-first encrypted credential manager with vim-style TUI"
 license = "MIT"
-repository = "https://github.com/kimlong/credlock"
+repository = "https://github.com/kimlong/vaultcli"
 keywords = ["password", "credential", "manager", "tui", "encryption"]
 categories = ["command-line-utilities", "cryptography"]
 
