@@ -2,6 +2,8 @@
 
 A local-first encrypted credential manager with vim-style TUI, built in Rust.
 
+![image](https://github.com/user-attachments/assets/417c24fa-8e47-48ea-956b-8a700827deab)
+
 ## Features
 
 - **Secure Storage**: Per-credential encryption with ChaCha20-Poly1305 AEAD
