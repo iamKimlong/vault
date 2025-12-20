@@ -14,7 +14,7 @@
 
 ![image](https://github.com/user-attachments/assets/417c24fa-8e47-48ea-956b-8a700827deab)
 
-## Features
+## ✨ Features
 
 - **Secure Storage:** Per-credential encryption with ChaCha20-Poly1305 AEAD
 - **Strong Key Derivation:** Argon2id with 19 MiB memory cost
@@ -26,7 +26,7 @@
 - **Audit Trail:** HMAC-signed logs for tamper detection
 - **Auto-lock:** Automatically lock vault-cli after 5 minutes of inactivity
 
-## Installation
+## ⚡ Installation
 
 ```bash
 git clone https://github.com/iamKimlong/vaultcli
@@ -50,7 +50,7 @@ sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
 cargo install --path .   # ensure ~/.cargo/bin is in PATH
 ```
 
-## Usage
+## 🚀 Usage
 
 ### Normal Mode
 | Key | Action |
@@ -77,20 +77,7 @@ cargo install --path .   # ensure ~/.cargo/bin is in PATH
 - `:gen` - Generate password
 - `:help` - Show help
 
-## Project Structure
-
-```
-src/
-├── app.rs          # Application state
-├── main.rs         # Entry point
-├── crypto/         # Encryption, KDF, TOTP
-├── db/             # SQLite + FTS5
-├── input/          # Vim keybindings
-├── ui/             # TUI components
-└── vault/          # Business logic
-```
-
-## Security
+## 🛡️ Security
 
 - ChaCha20-Poly1305 encryption
 - Argon2id key derivation (19 MiB, 2 iterations)
