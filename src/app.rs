@@ -581,8 +581,8 @@ impl App {
             notes: cred.notes.clone(),
             tags: cred.tags.clone(),
             project_name: project_name.to_string(),
-            created_at: cred.created_at.format("%Y-%m-%d %H:%M").to_string(),
-            updated_at: cred.updated_at.format("%Y-%m-%d %H:%M").to_string(),
+            created_at: cred.created_at.format("%d-%b-%Y %H:%M").to_string(),
+            updated_at: cred.updated_at.format("%d-%b-%Y %H:%M").to_string(),
             totp_code,
             totp_remaining,
         }
