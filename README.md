@@ -1,4 +1,6 @@
-[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Security](#security)
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Security](#security) · [Dependencies](#dependencies)
+
+# Vault-CLI
 
 **vault-cli** is local-first encrypted credential manager with vim-style TUI, built in Rust.
 
@@ -78,3 +80,59 @@ cargo install --path .   # ensure ~/.cargo/bin is in PATH
 - Zeroized memory for sensitive data
 - HMAC-SHA256 audit signatures
 - Auto-lock after 5 minutes
+
+<a name="dependencies"></a>
+## ⚙️ Dependencies
+
+### TUI
+
+- [`ratatui`](https://crates.io/crates/ratatui)
+- [`crossterm`](https://crates.io/crates/crossterm)
+
+### Database
+
+- [`rusqlite`](https://crates.io/crates/rusqlite)
+    Features: `bundled`, `backup`
+
+### Crypto
+
+- [`argon2`](https://crates.io/crates/argon2)
+- [`chacha20poly1305`](https://crates.io/crates/chacha20poly1305)
+- [`hkdf`](https://crates.io/crates/hkdf)
+- [`sha2`](https://crates.io/crates/sha2)
+- [`hmac`](https://crates.io/crates/hmac)
+- [`sha1`](https://crates.io/crates/sha1)
+- [`rand`](https://crates.io/crates/rand)
+- [`zeroize`](https://crates.io/crates/zeroize)
+    Features: `derive`
+
+### TOTP
+
+- [`totp-rs`](https://crates.io/crates/totp-rs)
+  Features: `otpauth`
+
+### Clipboard
+
+- [`arboard`](https://crates.io/crates/arboard)
+
+### Serialization
+
+- [`serde`](https://crates.io/crates/serde)
+    Features: `derive`
+- [`serde_json`](https://crates.io/crates/serde_json)
+
+### Utilities
+
+- [`chrono`](https://crates.io/crates/chrono)
+    Features: `serde`
+- [`uuid`](https://crates.io/crates/uuid)
+    Features: `v4`
+- [`hex`](https://crates.io/crates/hex)
+- [`base64`](https://crates.io/crates/base64)
+- [`dirs`](https://crates.io/crates/dirs)
+- [`thiserror`](https://crates.io/crates/thiserror)
+- [`anyhow`](https://crates.io/crates/anyhow)
+
+### Development Dependencies
+
+- [`tempfile`](https://crates.io/crates/tempfile)
