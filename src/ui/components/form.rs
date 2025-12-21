@@ -345,7 +345,7 @@ impl<'a> Widget for CredentialFormWidget<'a> {
             let display_value = if field.field_type == FieldType::Select {
                 // Show type with icon
                 let icon = self.form.credential_type.icon();
-                format!("{} {} [Tab to change]", icon, field.value)
+                format!("{} {} [Space to change]", icon, field.value)
             } else if field.masked && !self.form.show_password {
                 "*".repeat(field.value.len().min(value_width as usize))
             } else {
