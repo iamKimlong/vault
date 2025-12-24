@@ -24,12 +24,16 @@ pub fn log_action(
     
     // Build message to sign
     let message = format!(
-        "{}:{}:{}:{}",
-        timestamp.to_rfc3339(),
+        "{}:{}",
         action.as_str(),
         credential_id.unwrap_or(""),
-        details.unwrap_or("")
     );
+
+    let message = if let Some(d) = details {
+        format!("{}:{}", message, d)
+    } else {
+        message
+    };
 
     // Compute HMAC
     let hmac = compute_hmac(audit_key.as_bytes(), &message);
@@ -49,12 +53,16 @@ pub fn log_action(
 /// Verify an audit log entry's HMAC
 pub fn verify_log(audit_key: &DerivedKey, log: &AuditLog) -> bool {
     let message = format!(
-        "{}:{}:{}:{}",
-        log.timestamp.to_rfc3339(),
+        "{}:{}",
         log.action.as_str(),
         log.credential_id.as_deref().unwrap_or(""),
-        log.details.as_deref().unwrap_or("")
     );
+
+    let message = if let Some(d) = &log.details {
+        format!("{}:{}", message, d)
+    } else {
+        message
+    };
 
     let expected_hmac = compute_hmac(audit_key.as_bytes(), &message);
     expected_hmac == log.hmac
@@ -94,19 +102,20 @@ fn compute_hmac(key: &[u8], message: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::{KeyHierarchy, MasterKey};
+    use crate::crypto::{CryptoResult, MasterKey};
+    use crate::crypto::key_hierarchy::KeyHierarchy;
     use crate::db::Database;
 
-    fn test_audit_key() -> DerivedKey {
+    fn test_audit_key() -> CryptoResult<DerivedKey> {
         let master = MasterKey::from_bytes([0x42u8; 32]);
-        let hierarchy = KeyHierarchy::new(master);
-        hierarchy.derive_audit_key().unwrap()
+        let hierarchy = KeyHierarchy::new(master)?;
+        hierarchy.derive_audit_key()
     }
 
     #[test]
-    fn test_log_action() {
+    fn test_log_action() -> CryptoResult<()> {
         let db = Database::open_in_memory().unwrap();
-        let key = test_audit_key();
+        let key = test_audit_key()?;
 
         let id = log_action(
             db.conn(),
@@ -121,12 +130,14 @@ mod tests {
 
         let logs = get_recent_logs(db.conn(), 10).unwrap();
         assert!(!logs.is_empty());
+
+        Ok(())
     }
 
     #[test]
-    fn test_verify_log() {
+    fn test_verify_log() -> CryptoResult<()> {
         let db = Database::open_in_memory().unwrap();
-        let key = test_audit_key();
+        let key = test_audit_key()?;
 
         log_action(
             db.conn(),
@@ -141,12 +152,14 @@ mod tests {
         let log = &logs[0];
 
         assert!(verify_log(&key, log));
+
+        Ok(())
     }
 
     #[test]
-    fn test_tampered_log_fails_verification() {
+    fn test_tampered_log_fails_verification() -> CryptoResult<()> {
         let db = Database::open_in_memory().unwrap();
-        let key = test_audit_key();
+        let key = test_audit_key()?;
 
         log_action(
             db.conn(),
@@ -162,20 +175,24 @@ mod tests {
         tampered_log.details = Some("Tampered details".to_string());
 
         assert!(!verify_log(&key, &tampered_log));
+
+        Ok(())
     }
 
     #[test]
-    fn test_wrong_key_fails_verification() {
+    fn test_wrong_key_fails_verification() -> CryptoResult<()> {
         let db = Database::open_in_memory().unwrap();
-        let key1 = test_audit_key();
+        let key1 = test_audit_key()?;
         
         let master2 = MasterKey::from_bytes([0x43u8; 32]);
-        let hierarchy2 = KeyHierarchy::new(master2);
-        let key2 = hierarchy2.derive_audit_key().unwrap();
+        let hierarchy2 = KeyHierarchy::new(master2).unwrap();
+        let key2 = hierarchy2.derive_audit_key()?;
 
         log_action(db.conn(), &key1, AuditAction::Delete, Some("cred"), None).unwrap();
 
         let logs = get_recent_logs(db.conn(), 1).unwrap();
         assert!(!verify_log(&key2, &logs[0]));
+
+        Ok(())
     }
 }
