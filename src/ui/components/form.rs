@@ -279,7 +279,7 @@ impl<'a> CredentialFormWidget<'a> {
 impl<'a> Widget for CredentialFormWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // Center the form
-        let form_width = 60u16.min(area.width.saturating_sub(4));
+        let form_width = 70u16.min(area.width.saturating_sub(4));
         let form_height = 20u16.min(area.height.saturating_sub(2));
         let form_x = area.x + (area.width.saturating_sub(form_width)) / 2;
         let form_y = area.y + (area.height.saturating_sub(form_height)) / 2;
@@ -300,7 +300,7 @@ impl<'a> Widget for CredentialFormWidget<'a> {
 
         // Calculate field layout
         let mut y = inner.y;
-        let label_width = 16u16;
+        let label_width = 18u16;
 
         for (i, field) in self.form.fields.iter().enumerate() {
             if y >= inner.y + inner.height - 2 {
