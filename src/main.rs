@@ -400,7 +400,13 @@ fn run_app(
 
         if app.vault.should_auto_lock() {
             app.lock();
-            return run_unlock(terminal, app);
+        }
+
+        if app.is_locked() {
+            while app.is_locked() && !app.should_quit {
+                run_unlock(terminal, app)?;
+            }
+            continue; // resume main loop after unlocking
         }
     }
 
