@@ -16,6 +16,7 @@ use crate::input::keymap::{
 use crate::input::modes::{InputMode, ModeState};
 use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ListViewState, MessageType};
 use crate::ui::renderer::{Renderer, UiState, View};
+use crate::ui::components::popup::HelpState;
 use crate::vault::credential::DecryptedCredential;
 use crate::vault::manager::VaultState;
 use crate::vault::Vault;
@@ -31,7 +32,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         let vault_path = dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("credlock")
+            .join("vault-cli")
             .join("vault.db");
 
         Self {
@@ -67,6 +68,8 @@ pub struct App {
     pub password_visible: bool,
     pub should_quit: bool,
     pub credential_form: Option<CredentialForm>,
+    pub wants_password_change: bool,
+    pub help_state: HelpState,
 }
 
 impl App {
@@ -88,6 +91,8 @@ impl App {
             password_visible: false,
             should_quit: false,
             credential_form: None,
+            wants_password_change: false,
+            help_state: HelpState::new(),
         }
     }
 
@@ -174,7 +179,7 @@ impl App {
             PendingAction::DeleteCredential(_) => "Delete this credential?",
             PendingAction::DeleteProject(_) => "Delete this project?",
             PendingAction::LockVault => "Lock the vault?",
-            PendingAction::Quit => "Quit CredLock?",
+            PendingAction::Quit => "Quit Vault-CLI?",
         });
 
         let project_name = self.projects.first().map(|p| p.name.as_str());
@@ -191,6 +196,7 @@ impl App {
             password_prompt: None,
             project_name,
             credential_form: self.credential_form.as_ref(),
+            help_state: &self.help_state,
         };
 
         Renderer::render(frame, &mut state);
@@ -204,7 +210,7 @@ impl App {
         }
     }
 
-    fn set_message(&mut self, msg: &str, msg_type: MessageType) {
+    pub fn set_message(&mut self, msg: &str, msg_type: MessageType) {
         self.message = Some((msg.to_string(), msg_type, Instant::now()));
     }
 
@@ -231,13 +237,35 @@ impl App {
             }
             InputMode::Confirm => confirm_action(key),
             InputMode::Help => {
-                let action = help_action(key);
-                // Handle help mode exit
-                if matches!(action, Action::Back) {
-                    self.mode_state.to_normal();
-                    return Ok(false);
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('?') => {
+                        self.mode_state.to_normal();
+                        return Ok(false);
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        let max = crate::ui::components::popup::HelpScreen::max_scroll(20); // visible height estimate
+                        self.help_state.scroll_down(1, max);
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        self.help_state.scroll_up(1);
+                    }
+                    KeyCode::Char('g') => {
+                        self.help_state.home();
+                    }
+                    KeyCode::Char('G') => {
+                        let max = crate::ui::components::popup::HelpScreen::max_scroll(20);
+                        self.help_state.end(max);
+                    }
+                    KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let max = crate::ui::components::popup::HelpScreen::max_scroll(20);
+                        self.help_state.scroll_down(10, max);
+                    }
+                    KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        self.help_state.scroll_up(10);
+                    }
+                    _ => {}
                 }
-                action
+                return Ok(false);
             }
             _ => Action::None,
         };
@@ -303,7 +331,7 @@ impl App {
         let form = self.credential_form.take().unwrap();
         
         let db = self.vault.db()?;
-        let key = self.vault.master_key()?;
+        let key = self.vault.dek()?;
 
         if let Some(id) = &form.editing_id {
             // Update existing credential
@@ -406,6 +434,17 @@ impl App {
             Action::PageDown => self.list_state.page_down(10),
             Action::HalfPageUp => self.list_state.page_up(5),
             Action::HalfPageDown => self.list_state.page_down(5),
+            Action::ShowHelp => {
+                self.help_state.home(); // Reset scroll position
+                self.mode_state.to_help();
+            }
+            Action::ChangePassword => {
+                if self.vault.is_unlocked() {
+                    self.wants_password_change = true;
+                } else {
+                    self.set_message("Vault must be unlocked", MessageType::Error);
+                }
+            }
 
             Action::Select => {
                 self.view = View::Detail;
@@ -457,7 +496,7 @@ impl App {
                 } else if let Some(idx) = self.list_state.selected() {
                     // Need to decrypt first
                     if let Some(cred) = self.credentials.get(idx) {
-                        let key = self.vault.master_key()?;
+                        let key = self.vault.dek()?;
                         let decrypted = crate::vault::credential::decrypt_credential(
                             self.vault.db()?.conn(),
                             key,
@@ -532,7 +571,7 @@ impl App {
             return Ok(());
         };
 
-        let key = self.vault.master_key()?;
+        let key = self.vault.dek()?;
         let decrypted = crate::vault::credential::decrypt_credential(
             self.vault.db()?.conn(),
             key,
@@ -559,7 +598,7 @@ impl App {
                     .unwrap_or_else(|_| TotpSecret::new(
                         secret_str.clone(),
                         cred.name.clone(),
-                        "CredLock".to_string(),
+                        "Vault-CLI".to_string(),
                     ));
                 
                 if let Ok(code) = totp::generate_totp(&totp_secret) {
@@ -634,7 +673,7 @@ impl App {
                         .unwrap_or_else(|_| TotpSecret::new(
                             secret_str.clone(),
                             cred.name.clone(),
-                            "CredLock".to_string(),
+                            "Vault-CLI".to_string(),
                         ));
                     
                     let code = totp::generate_totp(&totp_secret)?;
