@@ -14,7 +14,7 @@ pub struct InputHandler;
 
 impl InputHandler {
     /// Process a key event and return the resulting action
-    pub fn handle_key(key: KeyEvent, state: &mut ModeState) -> Action {
+    pub fn handle_key_event(key: KeyEvent, state: &mut ModeState) -> Action {
         match state.mode {
             InputMode::Normal => {
                 let (action, new_pending) = normal_mode_action(key, state.pending);
@@ -93,7 +93,7 @@ mod tests {
     fn test_normal_mode() {
         let mut state = ModeState::new();
         
-        let action = InputHandler::handle_key(key(KeyCode::Char('j')), &mut state);
+        let action = InputHandler::handle_key_event(key(KeyCode::Char('j')), &mut state);
         assert_eq!(action, Action::MoveDown);
     }
 
@@ -103,14 +103,14 @@ mod tests {
         state.to_command();
 
         // Type "quit"
-        InputHandler::handle_key(key(KeyCode::Char('q')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('u')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('i')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('t')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('q')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('u')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('i')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('t')), &mut state);
 
         assert_eq!(state.get_buffer(), "quit");
 
-        let action = InputHandler::handle_key(key(KeyCode::Enter), &mut state);
+        let action = InputHandler::handle_key_event(key(KeyCode::Enter), &mut state);
         assert_eq!(action, Action::ExecuteCommand("quit".to_string()));
         assert_eq!(state.mode, InputMode::Normal);
     }
@@ -120,12 +120,12 @@ mod tests {
         let mut state = ModeState::new();
         state.to_search();
 
-        InputHandler::handle_key(key(KeyCode::Char('t')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('e')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('s')), &mut state);
-        InputHandler::handle_key(key(KeyCode::Char('t')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('t')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('e')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('s')), &mut state);
+        InputHandler::handle_key_event(key(KeyCode::Char('t')), &mut state);
 
-        let action = InputHandler::handle_key(key(KeyCode::Enter), &mut state);
+        let action = InputHandler::handle_key_event(key(KeyCode::Enter), &mut state);
         assert_eq!(action, Action::Search("test".to_string()));
     }
 
@@ -135,7 +135,7 @@ mod tests {
         state.to_command();
         state.insert_char('x');
 
-        let action = InputHandler::handle_key(key(KeyCode::Esc), &mut state);
+        let action = InputHandler::handle_key_event(key(KeyCode::Esc), &mut state);
         assert_eq!(action, Action::Cancel);
         assert_eq!(state.mode, InputMode::Normal);
     }
@@ -145,7 +145,7 @@ mod tests {
         let mut state = ModeState::new();
         state.to_confirm();
 
-        let action = InputHandler::handle_key(key(KeyCode::Char('y')), &mut state);
+        let action = InputHandler::handle_key_event(key(KeyCode::Char('y')), &mut state);
         assert_eq!(action, Action::Confirm);
     }
 }

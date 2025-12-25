@@ -220,7 +220,7 @@ impl App {
     }
 
     /// Handle key event
-    pub fn handle_key(&mut self, key: KeyEvent) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn handle_key_event(&mut self, key: KeyEvent) -> Result<bool, Box<dyn std::error::Error>> {
         if key.kind != KeyEventKind::Press {
             return Ok(false);
         }
