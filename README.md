@@ -30,6 +30,9 @@ Requires `rustc` to be installed on your system!
 git clone https://github.com/iamKimlong/vaultcli
 cd vaultcli
 
+# One-liner
+cargo build --release && sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
+
 # --------------------------------
 # Option 1: Build manually
 # --------------------------------
