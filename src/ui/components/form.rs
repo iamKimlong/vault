@@ -428,7 +428,7 @@ impl<'a> Widget for CredentialFormWidget<'a> {
             Span::raw(" save  "),
             Span::styled("Esc", Style::default().fg(Color::Magenta)),
             Span::raw(" cancel  "),
-            Span::styled("Ctrl+S", Style::default().fg(Color::Magenta)),
+            Span::styled("Ctrl+s", Style::default().fg(Color::Magenta)),
             Span::raw(" show pwd"),
         ]);
         buf.set_line(inner.x, help_y, &help_text, inner.width);
