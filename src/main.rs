@@ -37,7 +37,7 @@ impl PasswordField {
         self.cursor = 0;
     }
 
-    fn handle_key(&mut self, code: KeyCode) {
+    fn handle_key_event(&mut self, code: KeyCode) {
         match code {
             KeyCode::Backspace if self.cursor > 0 => {
                 self.cursor -= 1;
@@ -156,7 +156,7 @@ fn run_init(
                 }
             }
             code => {
-                if confirming { &mut confirm } else { &mut password }.handle_key(code);
+                if confirming { &mut confirm } else { &mut password }.handle_key_event(code);
             }
         }
     }
@@ -235,7 +235,7 @@ fn run_unlock(
                     }
                 }
             }
-            code => password.handle_key(code),
+            code => password.handle_key_event(code),
         }
     }
 }
@@ -314,7 +314,7 @@ fn run_password_change(
                     ChangeResult::Success => return Ok(true),
                 }
             }
-            code => state.current_field().handle_key(code),
+            code => state.current_field().handle_key_event(code),
         }
     }
 }
@@ -380,7 +380,7 @@ fn run_app(
         terminal.draw(|frame| app.render(frame))?;
 
         if let Some(key) = poll_key_press()? {
-            if app.handle_key(key)? {
+            if app.handle_key_event(key)? {
                 break;
             }
 
