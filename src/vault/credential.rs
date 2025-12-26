@@ -6,6 +6,7 @@
 //! master key directly.
 
 use chrono::{DateTime, Local};
+use secrecy::{ExposeSecret, SecretString};
 
 use crate::crypto::{decrypt_string, encrypt_string, DataEncryptionKey, MasterKey};
 use crate::db::{self, AuditAction, Credential, CredentialType};
@@ -13,15 +14,15 @@ use crate::db::{self, AuditAction, Credential, CredentialType};
 use super::{VaultError, VaultResult};
 
 /// Decrypted credential for display
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DecryptedCredential {
     pub id: String,
     pub name: String,
     pub credential_type: CredentialType,
     pub project_id: String,
     pub username: Option<String>,
-    pub secret: Option<String>,
-    pub notes: Option<String>,
+    pub secret: Option<SecretString>,
+    pub notes: Option<SecretString>,
     pub url: Option<String>,
     pub tags: Vec<String>,
     pub created_at: DateTime<Local>,
@@ -41,8 +42,8 @@ impl DecryptedCredential {
             credential_type: cred.credential_type,
             project_id: cred.project_id.clone(),
             username: cred.username.clone(),
-            secret,
-            notes,
+            secret: secret.map(SecretString::from),
+            notes: notes.map(SecretString::from),
             url: cred.url.clone(),
             tags: cred.tags.clone(),
             created_at: cred.created_at,
@@ -215,8 +216,14 @@ mod tests {
         let decrypted = decrypt_credential(conn, &dek, &cred, false).unwrap();
 
         assert_eq!(decrypted.name, "Test Credential");
-        assert_eq!(decrypted.secret, Some("my_secret_password".to_string()));
-        assert_eq!(decrypted.notes, Some("These are notes".to_string()));
+        assert_eq!(
+            decrypted.secret.as_ref().map(|s| s.expose_secret()),
+            Some("my_secret_password")
+        );
+        assert_eq!(
+            decrypted.notes.as_ref().map(|s| s.expose_secret()),
+            Some("These are notes")
+        );
         assert_eq!(decrypted.username, Some("testuser".to_string()));
     }
 
@@ -245,8 +252,14 @@ mod tests {
         let fetched = get_credential(conn, &cred.id).unwrap();
         let decrypted = decrypt_credential(conn, &dek, &fetched, false).unwrap();
 
-        assert_eq!(decrypted.secret, Some("new_secret".to_string()));
-        assert_eq!(decrypted.notes, Some("new notes".to_string()));
+        assert_eq!(
+            decrypted.secret.as_ref().map(|s| s.expose_secret()),
+            Some("new_secret")
+        );
+        assert_eq!(
+            decrypted.notes.as_ref().map(|s| s.expose_secret()),
+            Some("new notes")
+        );
     }
 
     #[test]
@@ -302,6 +315,9 @@ mod tests {
 
         // Verify credential is still accessible
         let decrypted = decrypt_credential(conn, &same_dek, &cred, false).unwrap();
-        assert_eq!(decrypted.secret, Some("secret_password".to_string()));
+        assert_eq!(
+            decrypted.secret.as_ref().map(|s| s.expose_secret()),
+            Some("secret_password")
+        );
     }
 }
