@@ -134,13 +134,14 @@ pub fn update_credential(
             .map_err(|e| VaultError::CryptoError(e.to_string()))?;
     }
 
-    // Re-encrypt notes if changed
-    if let Some(notes) = new_notes {
-        cred.encrypted_notes = Some(
+    // Re-encrypt notes if changed or clear if None
+    cred.encrypted_notes = match new_notes {
+        Some(notes) if !notes.is_empty() => Some(
             encrypt_string(dek.as_ref(), notes)
                 .map_err(|e| VaultError::CryptoError(e.to_string()))?,
-        );
-    }
+        ),
+        _ => None,
+    };
 
     db::update_credential(conn, cred)?;
 
