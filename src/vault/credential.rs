@@ -159,37 +159,6 @@ pub fn decrypt_credential(
     Ok(DecryptedCredential::from_credential(cred, Some(secret), notes))
 }
 
-/// Decrypt a credential (legacy API using MasterKey - for backwards compatibility)
-#[deprecated(
-    since = "0.2.0",
-    note = "Use decrypt_credential with DataEncryptionKey instead"
-)]
-pub fn decrypt_credential_with_master_key(
-    conn: &rusqlite::Connection,
-    key: &MasterKey,
-    cred: &Credential,
-    log_access: bool,
-) -> VaultResult<DecryptedCredential> {
-    // Decrypt secret
-    let secret = decrypt_string(key.as_ref(), &cred.encrypted_secret)
-        .map_err(|e| VaultError::CryptoError(e.to_string()))?;
-
-    // Decrypt notes if present
-    let notes = cred
-        .encrypted_notes
-        .as_ref()
-        .map(|n| decrypt_string(key.as_ref(), n))
-        .transpose()
-        .map_err(|e| VaultError::CryptoError(e.to_string()))?;
-
-    // Update access time
-    if log_access {
-        db::touch_credential(conn, &cred.id)?;
-    }
-
-    Ok(DecryptedCredential::from_credential(cred, Some(secret), notes))
-}
-
 /// Update a credential (using DEK)
 pub fn update_credential(
     conn: &rusqlite::Connection,
