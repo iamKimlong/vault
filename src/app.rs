@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use secrecy::ExposeSecret;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::Frame;
 
@@ -122,6 +124,7 @@ impl App {
     pub fn unlock(&mut self, password: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.vault.unlock(password)?;
         self.refresh_data()?;
+        self.update_selected_detail()?;
         Ok(())
     }
 
@@ -435,14 +438,38 @@ impl App {
 
     fn execute_action(&mut self, action: Action) -> Result<bool, Box<dyn std::error::Error>> {
         match action {
-            Action::MoveUp => self.list_state.move_up(),
-            Action::MoveDown => self.list_state.move_down(),
-            Action::MoveToTop => self.list_state.move_to_top(),
-            Action::MoveToBottom => self.list_state.move_to_bottom(),
-            Action::PageUp => self.list_state.page_up(10),
-            Action::PageDown => self.list_state.page_down(10),
-            Action::HalfPageUp => self.list_state.page_up(5),
-            Action::HalfPageDown => self.list_state.page_down(5),
+            Action::MoveUp => {
+                self.list_state.move_up();
+                self.update_selected_detail()?;
+            }
+            Action::MoveDown => {
+                self.list_state.move_down();
+                self.update_selected_detail()?;
+            }
+            Action::MoveToTop => {
+                self.list_state.move_to_top();
+                self.update_selected_detail()?;
+            }
+            Action::MoveToBottom => {
+                self.list_state.move_to_bottom();
+                self.update_selected_detail()?;
+            }
+            Action::PageUp => {
+                self.list_state.page_up(10);
+                self.update_selected_detail()?;
+            }
+            Action::PageDown => {
+                self.list_state.page_down(10);
+                self.update_selected_detail()?;
+            }
+            Action::HalfPageUp => {
+                self.list_state.page_up(5);
+                self.update_selected_detail()?;
+            }
+            Action::HalfPageDown => {
+                self.list_state.page_down(5);
+                self.update_selected_detail()?;
+            }
             Action::ShowHelp => {
                 self.help_state.home(); // Reset scroll position
                 self.mode_state.to_help();
@@ -457,7 +484,6 @@ impl App {
 
             Action::Select => {
                 self.view = View::Detail;
-                self.update_selected_detail()?;
             }
             Action::Back => {
                 if self.view == View::Detail {
@@ -494,10 +520,10 @@ impl App {
                         cred.name.clone(),
                         cred.credential_type,
                         cred.username.clone(),
-                        cred.secret.clone().unwrap_or_default(),
+                        cred.secret.as_ref().map(|s| s.expose_secret().to_string()).unwrap_or_default(),
                         cred.url.clone(),
                         cred.tags.clone(),
-                        cred.notes.clone(),
+                        cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
                         cred.project_id.clone(),
                     );
                     self.credential_form = Some(form);
@@ -517,10 +543,10 @@ impl App {
                             decrypted.name.clone(),
                             decrypted.credential_type,
                             decrypted.username.clone(),
-                            decrypted.secret.clone().unwrap_or_default(),
+                            decrypted.secret.as_ref().map(|s| s.expose_secret().to_string()).unwrap_or_default(),
                             decrypted.url.clone(),
                             decrypted.tags.clone(),
-                            decrypted.notes.clone(),
+                            decrypted.notes.as_ref().map(|s| s.expose_secret().to_string()),
                             decrypted.project_id.clone(),
                         );
                         self.credential_form = Some(form);
@@ -572,6 +598,8 @@ impl App {
         Ok(false)
     }
 
+    /// Decrypt credential and store in self.selected_detail and self.selected_credential.
+    /// Previous values are dropped and zeroized via SecretString on each call.
     fn update_selected_detail(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let Some(idx) = self.list_state.selected() else {
             self.selected_detail = None;
@@ -606,9 +634,9 @@ impl App {
     fn build_detail(&self, cred: &DecryptedCredential, project_name: &str) -> CredentialDetail {
         let (totp_code, totp_remaining) = if cred.credential_type == CredentialType::Totp {
             if let Some(ref secret_str) = cred.secret {
-                let totp_secret = serde_json::from_str::<TotpSecret>(secret_str)
+                let totp_secret = serde_json::from_str::<TotpSecret>(secret_str.expose_secret())
                     .unwrap_or_else(|_| TotpSecret::new(
-                        secret_str.clone(),
+                        secret_str.expose_secret().to_string(),
                         cred.name.clone(),
                         "Vault-CLI".to_string(),
                     ));
@@ -630,10 +658,10 @@ impl App {
             name: cred.name.clone(),
             credential_type: cred.credential_type,
             username: cred.username.clone(),
-            secret: cred.secret.clone(),
+            secret: cred.secret.as_ref().map(|s| s.expose_secret().to_string()),
             secret_visible: self.password_visible,
             url: cred.url.clone(),
-            notes: cred.notes.clone(),
+            notes: cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
             tags: cred.tags.clone(),
             project_name: project_name.to_string(),
             created_at: cred.created_at.format("%d-%b-%Y %H:%M").to_string(),
@@ -662,7 +690,7 @@ impl App {
     fn copy_secret(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let secret = self.selected_credential.as_ref().and_then(|c| c.secret.clone());
         if let Some(secret) = secret {
-            self.copy_to_clipboard(&secret)?;
+            self.copy_to_clipboard(&secret.expose_secret())?;
             self.set_message("Password copied (30s)", MessageType::Success);
         }
         Ok(())
@@ -681,9 +709,9 @@ impl App {
         if let Some(ref cred) = self.selected_credential {
             if cred.credential_type == CredentialType::Totp {
                 if let Some(ref secret_str) = cred.secret {
-                    let totp_secret = serde_json::from_str::<TotpSecret>(secret_str)
+                    let totp_secret = serde_json::from_str::<TotpSecret>(secret_str.expose_secret())
                         .unwrap_or_else(|_| TotpSecret::new(
-                            secret_str.clone(),
+                            secret_str.expose_secret().to_string(),
                             cred.name.clone(),
                             "Vault-CLI".to_string(),
                         ));
