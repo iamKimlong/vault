@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use zeroize::Zeroize;
 use secrecy::ExposeSecret;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -728,7 +729,7 @@ impl App {
 
     fn copy_to_clipboard(&mut self, text: &str) -> Result<(), Box<dyn std::error::Error>> {
         let copy_id = CLIPBOARD_COPY_ID.fetch_add(1, Ordering::SeqCst) + 1;
-        let text = text.to_string();
+        let mut text = text.to_string();
         let timeout = self.config.clipboard_timeout;
 
         std::thread::spawn(move || {
@@ -769,6 +770,9 @@ impl App {
                 }
 
                 std::thread::sleep(timeout);
+
+                // Zeroize the local copy before thread exits
+                text.zeroize();
 
                 if CLIPBOARD_COPY_ID.load(Ordering::SeqCst) == copy_id {
                     if is_wayland {
