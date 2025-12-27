@@ -7,7 +7,7 @@ use rusqlite::Connection;
 use super::DbResult;
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// Initialize the database schema
 pub fn init_schema(conn: &Connection) -> DbResult<()> {
