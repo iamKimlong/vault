@@ -48,6 +48,7 @@ pub enum Action {
     GeneratePassword,
     ChangePassword,
     VerifyAudit,
+    ShowLogs,
     
     // Confirmation
     Confirm,
@@ -123,6 +124,7 @@ pub fn normal_mode_action(key: KeyEvent, pending: Option<char>) -> (Action, Opti
         (KeyCode::Char('Q'), _, _) => (Action::ForceQuit, None),
         (KeyCode::Char('r'), KeyModifiers::CONTROL, _) => (Action::Refresh, None),
         (KeyCode::Char('p'), KeyModifiers::CONTROL, _) => (Action::ChangePassword, None),
+        (KeyCode::Char('i'), KeyModifiers::NONE, _) => (Action::ShowLogs, None),
         (KeyCode::Char('L'), _, _) => (Action::Lock, None),
 
         _ => (Action::None, None),
@@ -186,6 +188,7 @@ pub fn parse_command(cmd: &str) -> Action {
         "passwd" | "password" | "changepw" => Action::ChangePassword,
         "lock" => Action::Lock,
         "refresh" => Action::Refresh,
+        "logs" | "log" => Action::ShowLogs,
         "audit" | "verify" => Action::VerifyAudit,
         "" => Action::None,
         other => Action::Invalid(other.to_string()),

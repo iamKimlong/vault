@@ -9,6 +9,7 @@ pub mod renderer;
 pub use components::{
     ConfirmDialog, CredentialDetail, CredentialForm, CredentialFormWidget, CredentialItem,
     CredentialList, DetailView, EmptyState, HelpBar, HelpScreen, ListViewState, MessageType,
+    LogsScreen, LogsState,
     PasswordDialog, StatusLine,
 };
 pub use renderer::{PasswordPrompt, Renderer, UiState, View};

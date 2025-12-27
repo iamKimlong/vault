@@ -12,5 +12,5 @@ pub mod statusline;
 pub use detail::{CredentialDetail, DetailView};
 pub use form::{CredentialForm, CredentialFormWidget, FormField};
 pub use list::{CredentialItem, CredentialList, EmptyState, ListViewState};
-pub use popup::{centered_rect, centered_rect_fixed, ConfirmDialog, HelpScreen, PasswordDialog};
+pub use popup::{centered_rect, centered_rect_fixed, ConfirmDialog, HelpScreen, PasswordDialog, LogsScreen, LogsState};
 pub use statusline::{HelpBar, MessageType, StatusLine};

@@ -19,6 +19,8 @@ pub enum InputMode {
     Confirm,
     /// Help screen
     Help,
+    /// Logs screen
+    Logs,
 }
 
 impl InputMode {
@@ -32,6 +34,7 @@ impl InputMode {
             Self::Filter => "FILTER",
             Self::Confirm => "CONFIRM",
             Self::Help => "HELP",
+            Self::Logs => "LOG",
         }
     }
 
@@ -112,6 +115,11 @@ impl ModeState {
     /// Switch to help mode
     pub fn to_help(&mut self) {
         self.set_mode(InputMode::Help);
+    }
+
+    /// Switch to log mode
+    pub fn to_logs(&mut self) {
+        self.mode = InputMode::Logs;
     }
 
     /// Insert character at cursor

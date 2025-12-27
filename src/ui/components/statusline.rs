@@ -88,6 +88,7 @@ impl<'a> Widget for StatusLine<'a> {
             InputMode::Filter => Style::default().fg(Color::Black).bg(Color::Cyan),
             InputMode::Confirm => Style::default().fg(Color::Black).bg(Color::Red),
             InputMode::Help => Style::default().fg(Color::Black).bg(Color::Yellow),
+            InputMode::Logs => Style::default().fg(Color::Black).bg(Color::Green),
         };
 
         let mode_text = format!(" {} ", self.mode.indicator());
@@ -162,6 +163,11 @@ impl<'a> HelpBar<'a> {
             InputMode::Help => vec![
                 ("q", "close"),
                 ("j/k", "scroll"),
+            ],
+            InputMode::Logs => vec![
+                ("j/k", "scroll"),
+                ("Ctrl-d/u", "page"),
+                ("q", "close"),
             ],
         };
         Self { hints }

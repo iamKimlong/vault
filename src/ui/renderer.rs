@@ -5,7 +5,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, BorderType},
+    widgets::{Widget, Block, Borders, BorderType},
     Frame,
 };
 
@@ -15,7 +15,7 @@ use super::components::{
     PasswordDialog, StatusLine,
 };
 use crate::input::InputMode;
-use crate::ui::components::popup::HelpState;
+use crate::ui::components::popup::{HelpState, LogsState, LogsScreen};
 
 /// Current view
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,7 @@ pub struct UiState<'a> {
     pub password_prompt: Option<PasswordPrompt<'a>>,
     pub credential_form: Option<&'a CredentialForm>,
     pub help_state: &'a HelpState,
+    pub logs_state: &'a LogsState,
 }
 
 pub struct PasswordPrompt<'a> {
@@ -163,6 +164,11 @@ impl Renderer {
         if state.mode == InputMode::Help {
             frame.render_widget(HelpScreen::new(state.help_state), area);
             return;
+        }
+
+        // Logs screen
+        if state.mode == InputMode::Logs {
+            LogsScreen::new(state.logs_state).render(frame.area(), frame.buffer_mut());
         }
 
         // Confirm dialog
