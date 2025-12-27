@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Widget, Wrap},
+    widgets::{Block, Borders, BorderType, Clear, Paragraph, Widget, Wrap},
 };
 
 use crate::db::models::CredentialType;
@@ -322,6 +322,7 @@ impl<'a> Widget for CredentialFormWidget<'a> {
         let block = Block::default()
             .title(self.title)
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta))
             .style(Style::default().bg(Color::Black));
 

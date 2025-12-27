@@ -7,7 +7,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Widget, Wrap},
+    widgets::{Block, Borders, BorderType, Paragraph, Widget, Wrap},
 };
 
 use crate::db::models::CredentialType;
@@ -46,6 +46,7 @@ impl<'a> Widget for DetailView<'a> {
         let block = Block::default()
             .title(format!(" {} ", self.detail.name))
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta));
 
         let inner = block.inner(area);

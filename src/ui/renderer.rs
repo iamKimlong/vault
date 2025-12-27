@@ -5,7 +5,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders},
+    widgets::{Block, Borders, BorderType},
     Frame,
 };
 
@@ -113,6 +113,7 @@ impl Renderer {
             let block = Block::default()
                 .title(" Credentials ")
                 .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::Magenta));
 
             let list = CredentialList::new(state.credentials).block(block);
@@ -131,6 +132,7 @@ impl Renderer {
         let block = Block::default()
             .title(" Credentials ")
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::DarkGray));
 
         let list = CredentialList::new(state.credentials).block(block);
@@ -155,6 +157,7 @@ impl Renderer {
             let block = Block::default()
                 .title(" Form ")
                 .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::Green));
             frame.render_widget(block, area);
         }

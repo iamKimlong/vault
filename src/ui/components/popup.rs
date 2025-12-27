@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Widget, Wrap},
+    widgets::{Block, Borders, BorderType, Clear, Paragraph, Widget, Wrap},
 };
 
 /// Centered rectangle helper
@@ -59,6 +59,7 @@ impl Widget for ConfirmDialog<'_> {
         let block = Block::default()
             .title(self.title)
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Yellow))
             .style(Style::default().bg(Color::Black));
 
@@ -128,6 +129,7 @@ impl Widget for MessagePopup<'_> {
         let block = Block::default()
             .title(self.title)
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(self.style)
             .style(Style::default().bg(Color::Black));
 
@@ -236,6 +238,7 @@ impl Widget for PasswordDialog<'_> {
         let block = Block::default()
             .title(self.title)
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta))
             .style(Style::default().bg(Color::Black));
 
@@ -325,6 +328,7 @@ impl Widget for HelpScreen<'_> {
             .title(" Help Page ")
             .title_bottom(Line::from(" j/k scroll • q close ").centered())
             .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta))
             .style(Style::default().bg(Color::Black));
 
