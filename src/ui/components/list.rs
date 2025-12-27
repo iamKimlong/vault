@@ -145,7 +145,7 @@ pub struct CredentialList<'a> {
     items: &'a [CredentialItem],
     block: Option<Block<'a>>,
     highlight_style: Style,
-    show_project: bool,
+    show_username: bool,
 }
 
 impl<'a> CredentialList<'a> {
@@ -156,7 +156,7 @@ impl<'a> CredentialList<'a> {
             highlight_style: Style::default()
                 .bg(Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
-            show_project: true,
+            show_username: true,
         }
     }
 
@@ -170,8 +170,8 @@ impl<'a> CredentialList<'a> {
         self
     }
 
-    pub fn show_project(mut self, show: bool) -> Self {
-        self.show_project = show;
+    pub fn show_username(mut self, show: bool) -> Self {
+        self.show_username = show;
         self
     }
 }
@@ -192,18 +192,13 @@ impl<'a> StatefulWidget for CredentialList<'a> {
                     Span::styled(&item.name, Style::default().fg(Color::White)),
                 ];
 
-                if let Some(ref username) = item.username {
-                    spans.push(Span::styled(
-                        format!(" ({})", username),
-                        Style::default().fg(Color::DarkGray),
-                    ));
-                }
-
-                if self.show_project {
-                    spans.push(Span::styled(
-                        format!(" [{}]", item.project_name),
-                        Style::default().fg(Color::Cyan),
-                    ));
+                if self.show_username {
+                    if let Some(ref username) = item.username {
+                        spans.push(Span::styled(
+                            format!(" ({})", username),
+                            Style::default().fg(Color::Cyan),
+                        ));
+                    }
                 }
 
                 ListItem::new(Line::from(spans))
