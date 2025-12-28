@@ -6,15 +6,17 @@
 
 use hkdf::Hkdf;
 use sha2::Sha256;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
 use super::dek::DataEncryptionKey;
-use super::{CryptoError, CryptoResult, MasterKey};
+use super::{CryptoError, CryptoResult, LockedBuffer, MasterKey};
 
 /// A derived key for credentials
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+///
+/// Memory-locked to prevent swapping to disk.
+#[derive(Clone)]
 pub struct DerivedKey {
-    key: [u8; 32],
+    key: LockedBuffer<32>,
 }
 
 impl DerivedKey {
@@ -24,7 +26,14 @@ impl DerivedKey {
 
     /// Convert to MasterKey for encryption operations
     pub fn to_master_key(&self) -> MasterKey {
-        MasterKey::from_bytes(self.key)
+        MasterKey::from_bytes(*self.key)
+    }
+}
+
+// Debug impl that doesn't leak key material
+impl std::fmt::Debug for DerivedKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DerivedKey").finish_non_exhaustive()
     }
 }
 
@@ -128,7 +137,14 @@ fn derive_key(ikm: &[u8], context: &str, info: &str) -> CryptoResult<DerivedKey>
     hk.expand(info_bytes.as_bytes(), &mut okm)
         .map_err(|e| CryptoError::KeyDerivationFailed(e.to_string()))?;
 
-    Ok(DerivedKey { key: okm })
+    let derived = DerivedKey {
+        key: LockedBuffer::new(okm),
+    };
+
+    // Zeroize the temporary buffer
+    okm.zeroize();
+
+    Ok(derived)
 }
 
 #[cfg(test)]

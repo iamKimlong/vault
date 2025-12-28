@@ -7,16 +7,18 @@
 //! - Password change only requires re-wrapping the DEK
 
 use rand::RngCore;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
 use super::encryption::{decrypt_bytes, encrypt_bytes};
-use super::{CryptoError, CryptoResult, MasterKey};
+use super::{CryptoError, CryptoResult, LockedBuffer, MasterKey};
 
 /// Data Encryption Key (256 bits)
+///
 /// This key is used to encrypt all credentials in the vault.
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+/// Memory-locked to prevent swapping to disk.
+#[derive(Clone)]
 pub struct DataEncryptionKey {
-    key: [u8; 32],
+    key: LockedBuffer<32>,
 }
 
 impl DataEncryptionKey {
@@ -24,12 +26,21 @@ impl DataEncryptionKey {
     pub fn generate() -> Self {
         let mut key = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut key);
-        Self { key }
+        let dek = Self {
+            key: LockedBuffer::new(key),
+        };
+
+        // Zeroize the temporary buffer
+        key.zeroize();
+
+        dek
     }
 
     /// Create from raw bytes (used when unwrapping)
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self { key: bytes }
+        Self {
+            key: LockedBuffer::new(bytes),
+        }
     }
 
     /// Get key bytes for encryption operations
@@ -40,14 +51,16 @@ impl DataEncryptionKey {
     /// Wrap (encrypt) the DEK with the master key
     /// Returns a hex-encoded string suitable for database storage
     pub fn wrap(&self, master_key: &MasterKey) -> CryptoResult<String> {
-        encrypt_bytes(master_key.as_ref(), &self.key)
+        encrypt_bytes(master_key.as_ref(), &*self.key)
     }
 
     /// Unwrap (decrypt) a DEK using the master key
     pub fn unwrap(wrapped_dek: &str, master_key: &MasterKey) -> CryptoResult<Self> {
-        let dek_bytes = decrypt_bytes(master_key.as_ref(), &wrapped_dek.to_string())?;
+        let mut dek_bytes = decrypt_bytes(master_key.as_ref(), &wrapped_dek.to_string())?;
 
         if dek_bytes.len() != 32 {
+            // Zeroize before returning error
+            dek_bytes.zeroize();
             return Err(CryptoError::DecryptionFailed(format!(
                 "Invalid DEK length: expected 32, got {}",
                 dek_bytes.len()
@@ -57,7 +70,17 @@ impl DataEncryptionKey {
         let mut key = [0u8; 32];
         key.copy_from_slice(&dek_bytes);
 
-        Ok(Self { key })
+        // Zeroize the temporary Vec
+        dek_bytes.zeroize();
+
+        let dek = Self {
+            key: LockedBuffer::new(key),
+        };
+
+        // Zeroize the temporary array
+        key.zeroize();
+
+        Ok(dek)
     }
 
     /// Re-wrap the DEK with a new master key
@@ -69,7 +92,14 @@ impl DataEncryptionKey {
 
 impl AsRef<[u8]> for DataEncryptionKey {
     fn as_ref(&self) -> &[u8] {
-        &self.key
+        self.key.as_ref()
+    }
+}
+
+// Debug impl that doesn't leak key material
+impl std::fmt::Debug for DataEncryptionKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DataEncryptionKey").finish_non_exhaustive()
     }
 }
 

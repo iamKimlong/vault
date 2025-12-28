@@ -7,20 +7,24 @@ use argon2::{
     Argon2, Params,
 };
 use serde::{Deserialize, Serialize};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
-use super::{CryptoError, CryptoResult};
+use super::{CryptoError, CryptoResult, LockedBuffer};
 
 /// Master key (256 bits)
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+///
+/// Memory-locked to prevent swapping to disk.
+#[derive(Clone)]
 pub struct MasterKey {
-    key: [u8; 32],
+    key: LockedBuffer<32>,
 }
 
 impl MasterKey {
     /// Create from raw bytes
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self { key: bytes }
+        Self {
+            key: LockedBuffer::new(bytes),
+        }
     }
 
     /// Get key bytes
@@ -31,7 +35,14 @@ impl MasterKey {
 
 impl AsRef<[u8]> for MasterKey {
     fn as_ref(&self) -> &[u8] {
-        &self.key
+        self.key.as_ref()
+    }
+}
+
+// Debug impl that doesn't leak key material
+impl std::fmt::Debug for MasterKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MasterKey").finish_non_exhaustive()
     }
 }
 
@@ -105,7 +116,13 @@ pub fn derive_master_key(password: &[u8], params: &KdfParams) -> CryptoResult<(M
     let mut key_bytes = [0u8; 32];
     key_bytes.copy_from_slice(&hash_bytes[..32]);
 
-    Ok((MasterKey::from_bytes(key_bytes), password_hash.to_string()))
+    // MasterKey constructor handles mlock
+    let master_key = MasterKey::from_bytes(key_bytes);
+
+    // Zeroize the temporary buffer
+    key_bytes.zeroize();
+
+    Ok((master_key, password_hash.to_string()))
 }
 
 /// Verify password against stored hash and derive key
@@ -133,7 +150,13 @@ pub fn verify_master_key(password: &[u8], password_hash: &str) -> CryptoResult<M
     let mut key_bytes = [0u8; 32];
     key_bytes.copy_from_slice(&hash_bytes[..32]);
 
-    Ok(MasterKey::from_bytes(key_bytes))
+    // MasterKey constructor handles mlock
+    let master_key = MasterKey::from_bytes(key_bytes);
+
+    // Zeroize the temporary buffer
+    key_bytes.zeroize();
+
+    Ok(master_key)
 }
 
 #[cfg(test)]
