@@ -53,30 +53,30 @@ Copy-Item .\target\release\vault-cli.exe "$env:LOCALAPPDATA\Microsoft\WindowsApp
 
 <details>
 <summary><b>Manual install (per-user)</b></summary>
+
 ```bash
 cargo build --release
 # Unix
 mkdir -p ~/.local/bin && mv target/release/vault-cli ~/.local/bin/
 # Ensure ~/.local/bin is in your PATH
 ```
-
 </details>
 
 <details>
 <summary><b>Cargo install</b></summary>
+
 ```bash
 cargo install --path .
 # Installs to ~/.cargo/bin (must be in PATH)
 ```
-
 </details>
 
 <details>
 <summary><b>Development/testing</b></summary>
+
 ```bash
 cargo run
 ```
-
 </details>
 
 **📜 Note:** whenever you update the `vault-cli`, your credentials will remain unchanged unless you explicitly delete them.
