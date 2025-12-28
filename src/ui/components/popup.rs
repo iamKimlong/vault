@@ -264,6 +264,147 @@ impl Widget for PasswordDialog<'_> {
     }
 }
 
+/// Scrollable logs screen state
+#[derive(Default)]
+pub struct LogsState {
+    pub scroll: usize,
+    pub logs: Vec<AuditLog>,
+}
+
+impl LogsState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_logs(&mut self, logs: Vec<AuditLog>) {
+        self.logs = logs;
+        self.scroll = 0; // Reset scroll when logs update
+    }
+
+    pub fn scroll_up(&mut self, amount: usize) {
+        self.scroll = self.scroll.saturating_sub(amount);
+    }
+
+    pub fn scroll_down(&mut self, amount: usize, max_scroll: usize) {
+        self.scroll = (self.scroll + amount).min(max_scroll);
+    }
+
+    pub fn home(&mut self) {
+        self.scroll = 0;
+    }
+
+    pub fn end(&mut self, max_scroll: usize) {
+        self.scroll = max_scroll;
+    }
+
+    pub fn max_scroll(&self, visible_height: u16) -> usize {
+        self.logs.len().saturating_sub(visible_height as usize)
+    }
+}
+
+/// Audit logs screen widget
+pub struct LogsScreen<'a> {
+    state: &'a LogsState,
+}
+
+impl<'a> LogsScreen<'a> {
+    pub fn new(state: &'a LogsState) -> Self {
+        Self { state }
+    }
+}
+
+impl Widget for LogsScreen<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let popup = centered_rect(75, 70, area);
+        Clear.render(popup, buf);
+
+        let block = Block::default()
+            .title(" Audit Logs ")
+            .title_bottom(Line::from(" j/k scroll • Ctrl-d/u page • q close ").centered())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Magenta))
+            .style(Style::default().bg(Color::Black));
+
+        let inner = block.inner(popup);
+        block.render(popup, buf);
+
+        if self.state.logs.is_empty() {
+            let msg = Paragraph::new("No audit logs found")
+                .style(Style::default().fg(Color::DarkGray));
+            msg.render(inner, buf);
+            return;
+        }
+
+        // Render header
+        let header_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+        let header = format!(
+            "{:<19}  {:<8}  {:<36}  {}",
+            "TIMESTAMP", "ACTION", "CREDENTIAL", "DETAILS"
+        );
+        buf.set_string(inner.x, inner.y, &header, header_style);
+
+        // Render separator
+        let sep: String = "─".repeat(inner.width as usize);
+        buf.set_string(inner.x, inner.y + 1, &sep, Style::default().fg(Color::DarkGray));
+
+        // Render log entries
+        let content_start_y = inner.y + 2;
+        let visible_height = inner.height.saturating_sub(2) as usize;
+
+        for (i, log) in self.state.logs.iter().enumerate().skip(self.state.scroll) {
+            let row_idx = i - self.state.scroll;
+            if row_idx >= visible_height {
+                break;
+            }
+
+            let y = content_start_y + row_idx as u16;
+            render_log_row(inner.x, y, inner.width, log, buf);
+        }
+    }
+}
+
+fn render_log_row(x: u16, y: u16, width: u16, log: &AuditLog, buf: &mut Buffer) {
+    // Format timestamp: "28-Dec-2025 14:30"
+    let timestamp = log.timestamp.format("%d-%b-%Y at %H:%M").to_string();
+
+    // Action with color coding
+    let (action_str, action_color) = match log.action {
+        crate::db::AuditAction::Create => ("CREATE", Color::Green),
+        crate::db::AuditAction::Read => ("READ", Color::Blue),
+        crate::db::AuditAction::Update => ("UPDATE", Color::Yellow),
+        crate::db::AuditAction::Delete => ("DELETE", Color::Red),
+        crate::db::AuditAction::Copy => ("COPY", Color::Magenta),
+        crate::db::AuditAction::Export => ("EXPORT", Color::Cyan),
+        crate::db::AuditAction::Import => ("IMPORT", Color::Cyan),
+        crate::db::AuditAction::Unlock => ("UNLOCK", Color::Green),
+        crate::db::AuditAction::Lock => ("LOCK", Color::Yellow),
+    };
+
+    // Credential name (truncated)
+    let cred_name = log.credential_name.as_deref().unwrap_or("-");
+    let cred_display: String = if cred_name.len() > 36 {
+        format!("{}...", &cred_name[..33])
+    } else {
+        cred_name.to_string()
+    };
+
+    // Details (truncated to fit)
+    let details = log.details.as_deref().unwrap_or("-");
+    let remaining_width = width.saturating_sub(19 + 2 + 8 + 2 + 36 + 2) as usize;
+    let details_display: String = if details.len() > remaining_width {
+        format!("{}...", &details[..remaining_width.saturating_sub(3)])
+    } else {
+        details.to_string()
+    };
+
+    // Render each column
+    buf.set_string(x, y, &timestamp, Style::default().fg(Color::Gray));
+    buf.set_string(x + 21, y, action_str, Style::default().fg(action_color));
+    buf.set_string(x + 31, y, &cred_display, Style::default().fg(Color::White));
+    buf.set_string(x + 69, y, &details_display, Style::default().fg(Color::White));
+}
+
 const TWO_COLUMN_MIN_WIDTH: u16 = 80;
 const COLUMN_WIDTH: u16 = 38;
 
@@ -552,145 +693,4 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             ],
         ),
     ]
-}
-
-/// Scrollable logs screen state
-#[derive(Default)]
-pub struct LogsState {
-    pub scroll: usize,
-    pub logs: Vec<AuditLog>,
-}
-
-impl LogsState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn set_logs(&mut self, logs: Vec<AuditLog>) {
-        self.logs = logs;
-        self.scroll = 0; // Reset scroll when logs update
-    }
-
-    pub fn scroll_up(&mut self, amount: usize) {
-        self.scroll = self.scroll.saturating_sub(amount);
-    }
-
-    pub fn scroll_down(&mut self, amount: usize, max_scroll: usize) {
-        self.scroll = (self.scroll + amount).min(max_scroll);
-    }
-
-    pub fn home(&mut self) {
-        self.scroll = 0;
-    }
-
-    pub fn end(&mut self, max_scroll: usize) {
-        self.scroll = max_scroll;
-    }
-
-    pub fn max_scroll(&self, visible_height: u16) -> usize {
-        self.logs.len().saturating_sub(visible_height as usize)
-    }
-}
-
-/// Audit logs screen widget
-pub struct LogsScreen<'a> {
-    state: &'a LogsState,
-}
-
-impl<'a> LogsScreen<'a> {
-    pub fn new(state: &'a LogsState) -> Self {
-        Self { state }
-    }
-}
-
-impl Widget for LogsScreen<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let popup = centered_rect(75, 70, area);
-        Clear.render(popup, buf);
-
-        let block = Block::default()
-            .title(" Audit Logs ")
-            .title_bottom(Line::from(" j/k scroll • Ctrl-d/u page • q close ").centered())
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(Color::Magenta))
-            .style(Style::default().bg(Color::Black));
-
-        let inner = block.inner(popup);
-        block.render(popup, buf);
-
-        if self.state.logs.is_empty() {
-            let msg = Paragraph::new("No audit logs found")
-                .style(Style::default().fg(Color::DarkGray));
-            msg.render(inner, buf);
-            return;
-        }
-
-        // Render header
-        let header_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
-        let header = format!(
-            "{:<19}  {:<8}  {:<36}  {}",
-            "TIMESTAMP", "ACTION", "CREDENTIAL", "DETAILS"
-        );
-        buf.set_string(inner.x, inner.y, &header, header_style);
-
-        // Render separator
-        let sep: String = "─".repeat(inner.width as usize);
-        buf.set_string(inner.x, inner.y + 1, &sep, Style::default().fg(Color::DarkGray));
-
-        // Render log entries
-        let content_start_y = inner.y + 2;
-        let visible_height = inner.height.saturating_sub(2) as usize;
-
-        for (i, log) in self.state.logs.iter().enumerate().skip(self.state.scroll) {
-            let row_idx = i - self.state.scroll;
-            if row_idx >= visible_height {
-                break;
-            }
-
-            let y = content_start_y + row_idx as u16;
-            render_log_row(inner.x, y, inner.width, log, buf);
-        }
-    }
-}
-
-fn render_log_row(x: u16, y: u16, width: u16, log: &AuditLog, buf: &mut Buffer) {
-    // Format timestamp: "28-Dec-2025 14:30"
-    let timestamp = log.timestamp.format("%d-%b-%Y %H:%M").to_string();
-
-    // Action with color coding
-    let (action_str, action_color) = match log.action {
-        crate::db::AuditAction::Create => ("CREATE", Color::Green),
-        crate::db::AuditAction::Read => ("READ", Color::Blue),
-        crate::db::AuditAction::Update => ("UPDATE", Color::Yellow),
-        crate::db::AuditAction::Delete => ("DELETE", Color::Red),
-        crate::db::AuditAction::Copy => ("COPY", Color::Magenta),
-        crate::db::AuditAction::Export => ("EXPORT", Color::Cyan),
-        crate::db::AuditAction::Import => ("IMPORT", Color::Cyan),
-        crate::db::AuditAction::Unlock => ("UNLOCK", Color::Green),
-        crate::db::AuditAction::Lock => ("LOCK", Color::Yellow),
-    };
-
-    // Credential ID (truncated)
-    let cred_id = log.credential_id.as_deref().unwrap_or("-");
-    let cred_display: String = if cred_id.len() > 36 {
-        format!("{}...", &cred_id[..33])
-    } else {
-        cred_id.to_string()
-    };
-
-    // Details (truncated to fit)
-    let details = log.details.as_deref().unwrap_or("-");
-    let remaining_width = width.saturating_sub(19 + 2 + 8 + 2 + 36 + 2) as usize;
-    let details_display: String = if details.len() > remaining_width {
-        format!("{}...", &details[..remaining_width.saturating_sub(3)])
-    } else {
-        details.to_string()
-    };
-
-    // Render each column
-    buf.set_string(x, y, &timestamp, Style::default().fg(Color::Gray));
-    buf.set_string(x + 21, y, action_str, Style::default().fg(action_color));
-    buf.set_string(x + 31, y, &cred_display, Style::default().fg(Color::White));
-    buf.set_string(x + 69, y, &details_display, Style::default().fg(Color::White));
 }
