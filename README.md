@@ -28,43 +28,65 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 <a name="installation"></a>
 ## ⚡ Installation
 
-Requires `rustc` to be installed on your system!
+### Prerequisites
 
+- Requires [Rust toolchain](https://rustup.rs/) (rustc, cargo) to be installed on your system!
+
+### Quick Install
+
+**Unix (Linux/macOS):**
 ```bash
 git clone https://github.com/iamKimlong/vaultcli
 cd vaultcli
-
-# One-liner
 cargo build --release && sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
+```
 
-# --------------------------------
-# Option 1: Build manually
-# --------------------------------
-# Build the release binary
+**Windows:**
+```powershell
+git clone https://github.com/iamKimlong/vaultcli
+cd vaultcli
 cargo build --release
+Copy-Item .\target\release\vault-cli.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"
+```
 
-# Local install (per-user)
-mv ./target/release/vault-cli ~/.local/bin/vault-cli
+### Alternative Methods
 
-# System-wide install
-sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
+<details>
+<summary><b>Manual install (per-user)</b></summary>
+```bash
+cargo build --release
+# Unix
+mkdir -p ~/.local/bin && mv target/release/vault-cli ~/.local/bin/
+# Ensure ~/.local/bin is in your PATH
+```
 
-# --------------------------------
-# Option 2: Cargo-managed install
-# --------------------------------
-cargo install --path .   # ensure ~/.cargo/bin is in PATH
-# Currently have bugs on Windows (unable to create password)
+</details>
 
-# --------------------------------
-# Option 3: Test only (minimal)
-# --------------------------------
+<details>
+<summary><b>Cargo install</b></summary>
+```bash
+cargo install --path .
+# Installs to ~/.cargo/bin (must be in PATH)
+```
+
+</details>
+
+<details>
+<summary><b>Development/testing</b></summary>
+```bash
 cargo run
 ```
 
-**📜 Note:** whenever you update the vault-cli, your credentials will remain unchanged unless you explicity delete them.
+</details>
+
+**📜 Note:** whenever you update the `vault-cli`, your credentials will remain unchanged unless you explicitly delete them.
 
 <a name="usage"></a>
 ## 🚀 Usage
+
+```bash
+vault-cli
+```
 
 ### Normal Mode
 | Key | Action |
