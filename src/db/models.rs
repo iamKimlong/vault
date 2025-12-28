@@ -166,6 +166,8 @@ pub struct AuditLog {
     pub timestamp: DateTime<Local>,
     pub action: AuditAction,
     pub credential_id: Option<String>,
+    pub credential_name: Option<String>,
+    pub username: Option<String>,
     pub details: Option<String>,
     pub hmac: String,
 }
@@ -175,6 +177,8 @@ impl AuditLog {
     pub fn new(
         action: AuditAction,
         credential_id: Option<String>,
+        credential_name: Option<String>,
+        username: Option<String>,
         details: Option<String>,
         hmac: String,
     ) -> Self {
@@ -183,6 +187,8 @@ impl AuditLog {
             timestamp: Local::now(),
             action,
             credential_id,
+            credential_name,
+            username,
             details,
             hmac,
         }

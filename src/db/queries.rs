@@ -208,13 +208,15 @@ fn row_to_credential(row: &Row) -> rusqlite::Result<Credential> {
 pub fn create_audit_log(conn: &Connection, log: &AuditLog) -> DbResult<i64> {
     conn.execute(
         r#"
-        INSERT INTO audit_log (timestamp, action, credential_id, details, hmac)
-        VALUES (?1, ?2, ?3, ?4, ?5)
+        INSERT INTO audit_log (timestamp, action, credential_id, credential_name, username, details, hmac)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
         "#,
         params![
             log.timestamp.to_rfc3339(),
             log.action.as_str(),
             log.credential_id,
+            log.credential_name,
+            log.username,
             log.details,
             log.hmac,
         ],
@@ -227,7 +229,7 @@ pub fn create_audit_log(conn: &Connection, log: &AuditLog) -> DbResult<i64> {
 pub fn get_recent_audit_logs(conn: &Connection, limit: usize) -> DbResult<Vec<AuditLog>> {
     let mut stmt = conn.prepare(
         r#"
-        SELECT id, timestamp, action, credential_id, details, hmac
+        SELECT id, timestamp, action, credential_id, credential_name, username, details, hmac
         FROM audit_log
         ORDER BY timestamp DESC
         LIMIT ?1
@@ -241,8 +243,10 @@ pub fn get_recent_audit_logs(conn: &Connection, limit: usize) -> DbResult<Vec<Au
                 timestamp: parse_datetime(row.get::<_, String>(1)?),
                 action: AuditAction::from_str(&row.get::<_, String>(2)?),
                 credential_id: row.get(3)?,
-                details: row.get(4)?,
-                hmac: row.get(5)?,
+                credential_name: row.get(4)?,
+                username: row.get(5)?,
+                details: row.get(6)?,
+                hmac: row.get(7)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -255,7 +259,7 @@ pub fn get_recent_audit_logs(conn: &Connection, limit: usize) -> DbResult<Vec<Au
 pub fn get_credential_audit_logs(conn: &Connection, credential_id: &str) -> DbResult<Vec<AuditLog>> {
     let mut stmt = conn.prepare(
         r#"
-        SELECT id, timestamp, action, credential_id, details, hmac
+        SELECT id, timestamp, action, credential_id, credential_name, username, details, hmac
         FROM audit_log
         WHERE credential_id = ?1
         ORDER BY timestamp DESC
@@ -269,8 +273,10 @@ pub fn get_credential_audit_logs(conn: &Connection, credential_id: &str) -> DbRe
                 timestamp: parse_datetime(row.get::<_, String>(1)?),
                 action: AuditAction::from_str(&row.get::<_, String>(2)?),
                 credential_id: row.get(3)?,
-                details: row.get(4)?,
-                hmac: row.get(5)?,
+                credential_name: row.get(4)?,
+                username: row.get(5)?,
+                details: row.get(6)?,
+                hmac: row.get(7)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -357,6 +363,8 @@ mod tests {
         let log = AuditLog::new(
             AuditAction::Create,
             Some("cred-1".to_string()),
+            Some("user_foo".to_string()),
+            Some("bar123".to_string()),
             Some("Created credential".to_string()),
             "hmac_value".to_string(),
         );

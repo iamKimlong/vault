@@ -264,11 +264,121 @@ impl Widget for PasswordDialog<'_> {
     }
 }
 
+/// Generic scrollable popup state with both vertical and horizontal scrolling
+#[derive(Default, Clone)]
+pub struct ScrollState {
+    pub v_scroll: usize,
+    pub h_scroll: usize,
+}
+
+impl ScrollState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn reset(&mut self) {
+        self.v_scroll = 0;
+        self.h_scroll = 0;
+    }
+
+    pub fn scroll_up(&mut self, amount: usize) {
+        self.v_scroll = self.v_scroll.saturating_sub(amount);
+    }
+
+    pub fn scroll_down(&mut self, amount: usize, max: usize) {
+        self.v_scroll = (self.v_scroll + amount).min(max);
+    }
+
+    pub fn scroll_left(&mut self, amount: usize) {
+        self.h_scroll = self.h_scroll.saturating_sub(amount);
+    }
+
+    pub fn scroll_right(&mut self, amount: usize, max: usize) {
+        self.h_scroll = (self.h_scroll + amount).min(max);
+    }
+
+    pub fn home(&mut self) {
+        self.v_scroll = 0;
+    }
+
+    pub fn end(&mut self, max: usize) {
+        self.v_scroll = max;
+    }
+
+    pub fn h_home(&mut self) {
+        self.h_scroll = 0;
+    }
+
+    pub fn h_end(&mut self, max: usize) {
+        self.h_scroll = max;
+    }
+}
+
+/// Column widths for logs table
+#[derive(Clone)]
+struct LogsColumns {
+    timestamp: u16,
+    action: u16,
+    name: u16,
+    username: u16,
+    details: u16,
+}
+
+impl LogsColumns {
+    const GAP: u16 = 2;
+
+    /// Calculate column widths based on actual content in logs
+    fn from_logs(logs: &[AuditLog]) -> Self {
+        // Find max content widths
+        let max_name = logs.iter()
+            .filter_map(|l| l.credential_name.as_ref())
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or(4) as u16;  // "NAME" header
+
+        let max_username = logs.iter()
+            .filter_map(|l| l.username.as_ref())
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or(8) as u16;  // "USERNAME" header
+
+        let max_details = logs.iter()
+            .filter_map(|l| l.details.as_ref())
+            .map(|s| s.chars().count())
+            .max()
+            .unwrap_or(7) as u16;  // "DETAILS" header
+
+        Self {
+            timestamp: 20,  // "DD-Mon-YYYY at HH:MM" fixed
+            action: 8,      // "UNLOCK" is longest action, header is "ACTION"
+            name: max_name.max(4),      // At least "NAME"
+            username: max_username.max(8),  // At least "USERNAME"
+            details: max_details.max(7),    // At least "DETAILS"
+        }
+    }
+
+    /// Total width needed for all columns
+    fn total_width(&self) -> u16 {
+        self.timestamp + self.action + self.name + self.username + self.details + (Self::GAP * 4)
+    }
+
+    /// Get column start X positions (relative to 0)
+    fn positions(&self) -> (u16, u16, u16, u16, u16) {
+        let ts_x = 0;
+        let act_x = ts_x + self.timestamp + Self::GAP;
+        let name_x = act_x + self.action + Self::GAP;
+        let user_x = name_x + self.name + Self::GAP;
+        let det_x = user_x + self.username + Self::GAP;
+        (ts_x, act_x, name_x, user_x, det_x)
+    }
+}
+
 /// Scrollable logs screen state
 #[derive(Default)]
 pub struct LogsState {
-    pub scroll: usize,
+    pub scroll: ScrollState,
     pub logs: Vec<AuditLog>,
+    columns: Option<LogsColumns>,
 }
 
 impl LogsState {
@@ -277,28 +387,58 @@ impl LogsState {
     }
 
     pub fn set_logs(&mut self, logs: Vec<AuditLog>) {
+        self.columns = Some(LogsColumns::from_logs(&logs));
         self.logs = logs;
-        self.scroll = 0; // Reset scroll when logs update
+        self.scroll.reset();
     }
 
     pub fn scroll_up(&mut self, amount: usize) {
-        self.scroll = self.scroll.saturating_sub(amount);
+        self.scroll.scroll_up(amount);
     }
 
-    pub fn scroll_down(&mut self, amount: usize, max_scroll: usize) {
-        self.scroll = (self.scroll + amount).min(max_scroll);
+    pub fn scroll_down(&mut self, amount: usize, max: usize) {
+        self.scroll.scroll_down(amount, max);
+    }
+
+    pub fn scroll_left(&mut self, amount: usize) {
+        self.scroll.scroll_left(amount);
+    }
+
+    pub fn scroll_right(&mut self, amount: usize, max: usize) {
+        self.scroll.scroll_right(amount, max);
     }
 
     pub fn home(&mut self) {
-        self.scroll = 0;
+        self.scroll.home();
     }
 
-    pub fn end(&mut self, max_scroll: usize) {
-        self.scroll = max_scroll;
+    pub fn end(&mut self, max: usize) {
+        self.scroll.end(max);
     }
 
+    pub fn h_home(&mut self) {
+        self.scroll.h_home();
+    }
+
+    pub fn h_end(&mut self, max: usize) {
+        self.scroll.h_end(max);
+    }
+
+    /// Calculate max vertical scroll given visible height
     pub fn max_scroll(&self, visible_height: u16) -> usize {
         self.logs.len().saturating_sub(visible_height as usize)
+    }
+
+    /// Calculate max horizontal scroll given visible width
+    pub fn max_h_scroll(&self, visible_width: u16) -> usize {
+        let total = self.columns.as_ref()
+            .map(|c| c.total_width())
+            .unwrap_or(0);
+        (total as usize).saturating_sub(visible_width as usize)
+    }
+
+    fn columns(&self) -> LogsColumns {
+        self.columns.clone().unwrap_or_else(|| LogsColumns::from_logs(&self.logs))
     }
 }
 
@@ -311,16 +451,28 @@ impl<'a> LogsScreen<'a> {
     pub fn new(state: &'a LogsState) -> Self {
         Self { state }
     }
+
+    /// Calculate visible height for the logs popup given terminal area
+    pub fn visible_height(area: Rect) -> u16 {
+        let popup = centered_rect(85, 75, area);
+        // inner area minus header (1) and separator (1)
+        popup.height.saturating_sub(2).saturating_sub(2)
+    }
+
+    /// Calculate visible width for the logs popup given terminal area
+    pub fn visible_width(area: Rect) -> u16 {
+        let popup = centered_rect(85, 75, area);
+        popup.width.saturating_sub(2) // minus borders
+    }
 }
 
 impl Widget for LogsScreen<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let popup = centered_rect(75, 70, area);
+        let popup = centered_rect(85, 75, area);
         Clear.render(popup, buf);
 
         let block = Block::default()
             .title(" Audit Logs ")
-            .title_bottom(Line::from(" j/k scroll • Ctrl-d/u page • q close ").centered())
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta))
@@ -336,36 +488,134 @@ impl Widget for LogsScreen<'_> {
             return;
         }
 
+        let columns = self.state.columns();
+        let total_width = columns.total_width();
+        let max_h_scroll = (total_width as usize).saturating_sub(inner.width as usize);
+        let needs_h_scroll = max_h_scroll > 0;
+
+        // Render footer
+        let footer_text = if needs_h_scroll {
+            " j/k scroll • h/l pan • 0/$ pan start/end • q close "
+        } else {
+            " j/k scroll • g/G top/bottom • q close "
+        };
+        let footer_y = popup.y + popup.height - 1;
+        let footer_x = popup.x + (popup.width.saturating_sub(footer_text.len() as u16)) / 2;
+        buf.set_string(footer_x, footer_y, footer_text, Style::default().fg(Color::DarkGray));
+
+        let h_offset = self.state.scroll.h_scroll;
+        let (ts_x, act_x, name_x, user_x, det_x) = columns.positions();
+
         // Render header
         let header_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
-        let header = format!(
-            "{:<19}  {:<8}  {:<36}  {}",
-            "TIMESTAMP", "ACTION", "CREDENTIAL", "DETAILS"
-        );
-        buf.set_string(inner.x, inner.y, &header, header_style);
+        render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset,
+            ts_x, "TIMESTAMP", header_style);
+        render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset,
+            act_x, "ACTION", header_style);
+        render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset,
+            name_x, "NAME", header_style);
+        render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset,
+            user_x, "USERNAME", header_style);
+        render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset,
+            det_x, "DETAILS", header_style);
 
         // Render separator
-        let sep: String = "─".repeat(inner.width as usize);
-        buf.set_string(inner.x, inner.y + 1, &sep, Style::default().fg(Color::DarkGray));
+        let sep_y = inner.y + 1;
+        for x in inner.x..inner.x + inner.width {
+            buf.set_string(x, sep_y, "─", Style::default().fg(Color::DarkGray));
+        }
 
-        // Render log entries
+        // Render log entries (visible area starts after header + separator)
         let content_start_y = inner.y + 2;
         let visible_height = inner.height.saturating_sub(2) as usize;
 
-        for (i, log) in self.state.logs.iter().enumerate().skip(self.state.scroll) {
-            let row_idx = i - self.state.scroll;
+        for (i, log) in self.state.logs.iter().enumerate().skip(self.state.scroll.v_scroll) {
+            let row_idx = i - self.state.scroll.v_scroll;
             if row_idx >= visible_height {
                 break;
             }
 
             let y = content_start_y + row_idx as u16;
-            render_log_row(inner.x, y, inner.width, log, buf);
+            render_log_row(inner.x, y, inner.width, h_offset, &columns, log, buf);
+        }
+
+        // Render scroll indicator (arrows showing available scroll directions)
+        if needs_h_scroll {
+            let indicator = if h_offset == 0 {
+                "  "
+            } else if h_offset >= max_h_scroll {
+                "  "
+            } else {
+                "  "
+            };
+            let ind_x = inner.x + inner.width.saturating_sub(indicator.len() as u16);
+            buf.set_string(ind_x, inner.y, indicator, Style::default().fg(Color::Cyan));
         }
     }
 }
 
-fn render_log_row(x: u16, y: u16, width: u16, log: &AuditLog, buf: &mut Buffer) {
-    // Format timestamp: "28-Dec-2025 14:30"
+/// Render text at a virtual X position, handling horizontal scroll
+/// Text is NOT truncated - it's clipped by the view bounds only
+fn render_text_at_virtual_x(
+    buf: &mut Buffer,
+    base_x: u16,
+    y: u16,
+    view_width: u16,
+    h_offset: usize,
+    virtual_x: u16,
+    text: &str,
+    style: Style,
+) {
+    let h_off = h_offset as u16;
+    let text_len = text.chars().count() as u16;
+
+    // If virtual_x + text length is before the scroll offset, text is off-screen left
+    if virtual_x + text_len <= h_off {
+        return;
+    }
+
+    // If virtual_x is past the visible area, text is off-screen right
+    if virtual_x >= h_off + view_width {
+        return;
+    }
+
+    let screen_x = if virtual_x >= h_off {
+        base_x + virtual_x - h_off
+    } else {
+        base_x
+    };
+
+    // Calculate how much of the text to skip (if scrolled past start)
+    let skip_chars = if virtual_x < h_off {
+        (h_off - virtual_x) as usize
+    } else {
+        0
+    };
+
+    // Calculate available width on screen from screen_x to edge
+    let available = (base_x + view_width).saturating_sub(screen_x) as usize;
+
+    // Get visible portion of text (skip from left, take up to available width)
+    let visible_text: String = text.chars()
+        .skip(skip_chars)
+        .take(available)
+        .collect();
+
+    buf.set_string(screen_x, y, &visible_text, style);
+}
+
+fn render_log_row(
+    base_x: u16,
+    y: u16,
+    view_width: u16,
+    h_offset: usize,
+    columns: &LogsColumns,
+    log: &AuditLog,
+    buf: &mut Buffer,
+) {
+    let (ts_x, act_x, name_x, user_x, det_x) = columns.positions();
+
+    // Format timestamp
     let timestamp = log.timestamp.format("%d-%b-%Y at %H:%M").to_string();
 
     // Action with color coding
@@ -381,37 +631,26 @@ fn render_log_row(x: u16, y: u16, width: u16, log: &AuditLog, buf: &mut Buffer) 
         crate::db::AuditAction::Lock => ("LOCK", Color::Yellow),
     };
 
-    // Credential name (truncated)
     let cred_name = log.credential_name.as_deref().unwrap_or("-");
-    let cred_display: String = if cred_name.len() > 36 {
-        format!("{}...", &cred_name[..33])
-    } else {
-        cred_name.to_string()
-    };
-
-    // Details (truncated to fit)
+    let username = log.username.as_deref().unwrap_or("-");
     let details = log.details.as_deref().unwrap_or("-");
-    let remaining_width = width.saturating_sub(19 + 2 + 8 + 2 + 36 + 2) as usize;
-    let details_display: String = if details.len() > remaining_width {
-        format!("{}...", &details[..remaining_width.saturating_sub(3)])
-    } else {
-        details.to_string()
-    };
 
-    // Render each column
-    buf.set_string(x, y, &timestamp, Style::default().fg(Color::Gray));
-    buf.set_string(x + 21, y, action_str, Style::default().fg(action_color));
-    buf.set_string(x + 31, y, &cred_display, Style::default().fg(Color::White));
-    buf.set_string(x + 69, y, &details_display, Style::default().fg(Color::White));
+    render_text_at_virtual_x(buf, base_x, y, view_width, h_offset,
+        ts_x, &timestamp, Style::default().fg(Color::Magenta));
+    render_text_at_virtual_x(buf, base_x, y, view_width, h_offset,
+        act_x, action_str, Style::default().fg(action_color));
+    render_text_at_virtual_x(buf, base_x, y, view_width, h_offset,
+        name_x, cred_name, Style::default().fg(Color::White));
+    render_text_at_virtual_x(buf, base_x, y, view_width, h_offset,
+        user_x, username, Style::default().fg(Color::White));
+    render_text_at_virtual_x(buf, base_x, y, view_width, h_offset,
+        det_x, details, Style::default().fg(Color::DarkGray));
 }
-
-const TWO_COLUMN_MIN_WIDTH: u16 = 80;
-const COLUMN_WIDTH: u16 = 38;
 
 /// Scrollable help screen state
 #[derive(Default)]
 pub struct HelpState {
-    pub scroll: usize,
+    pub scroll: ScrollState,
 }
 
 impl HelpState {
@@ -420,19 +659,35 @@ impl HelpState {
     }
 
     pub fn scroll_up(&mut self, amount: usize) {
-        self.scroll = self.scroll.saturating_sub(amount);
+        self.scroll.scroll_up(amount);
     }
 
-    pub fn scroll_down(&mut self, amount: usize, max_scroll: usize) {
-        self.scroll = (self.scroll + amount).min(max_scroll);
+    pub fn scroll_down(&mut self, amount: usize, max: usize) {
+        self.scroll.scroll_down(amount, max);
+    }
+
+    pub fn scroll_left(&mut self, amount: usize) {
+        self.scroll.scroll_left(amount);
+    }
+
+    pub fn scroll_right(&mut self, amount: usize, max: usize) {
+        self.scroll.scroll_right(amount, max);
     }
 
     pub fn home(&mut self) {
-        self.scroll = 0;
+        self.scroll.home();
     }
 
-    pub fn end(&mut self, max_scroll: usize) {
-        self.scroll = max_scroll;
+    pub fn end(&mut self, max: usize) {
+        self.scroll.end(max);
+    }
+
+    pub fn h_home(&mut self) {
+        self.scroll.h_home();
+    }
+
+    pub fn h_end(&mut self, max: usize) {
+        self.scroll.h_end(max);
     }
 }
 
@@ -450,9 +705,9 @@ impl<'a> HelpScreen<'a> {
     fn single_column_height() -> usize {
         help_sections()
             .iter()
-            .map(|(_, bindings)| 1 + bindings.len() + 1) // header + bindings + spacing
+            .map(|(_, bindings)| 1 + bindings.len() + 1)
             .sum::<usize>()
-            .saturating_sub(1) // no trailing space after last section
+            .saturating_sub(1)
     }
 
     /// Calculate total content height for two-column mode
@@ -464,10 +719,25 @@ impl<'a> HelpScreen<'a> {
         left_height.max(right_height)
     }
 
+    /// Calculate content width for single-column mode
+    fn single_column_width() -> usize {
+        let sections = help_sections();
+        let mut max_width = 0usize;
+        for (header, bindings) in &sections {
+            max_width = max_width.max(header.len());
+            for (key, desc) in bindings {
+                // 4 indent + key + gap to 16 + desc
+                let line_width = 16 + desc.len();
+                max_width = max_width.max(line_width);
+            }
+        }
+        max_width
+    }
+
     /// Calculate content height based on whether two columns will be used
     pub fn content_height(area: Rect) -> usize {
         let popup = centered_rect(65, 65, area);
-        let inner_width = popup.width.saturating_sub(2); // Account for borders
+        let inner_width = popup.width.saturating_sub(2);
         if inner_width >= TWO_COLUMN_MIN_WIDTH {
             Self::two_column_height()
         } else {
@@ -482,13 +752,22 @@ impl<'a> HelpScreen<'a> {
         content.saturating_sub(visible)
     }
 
+    /// Calculate max horizontal scroll
+    pub fn max_h_scroll(area: Rect) -> usize {
+        let popup = centered_rect(65, 65, area);
+        let inner_width = popup.width.saturating_sub(2) as usize;
+        let content_width = Self::single_column_width();
+        content_width.saturating_sub(inner_width)
+    }
+
     /// Calculate visible height for the help popup given terminal area
     pub fn visible_height(area: Rect) -> u16 {
         let popup = centered_rect(65, 65, area);
-        // Account for border (2 lines)
         popup.height.saturating_sub(2)
     }
 }
+
+const TWO_COLUMN_MIN_WIDTH: u16 = 80;
 
 impl Widget for HelpScreen<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -497,7 +776,6 @@ impl Widget for HelpScreen<'_> {
 
         let block = Block::default()
             .title(" Help Page ")
-            .title_bottom(Line::from(" j/k scroll • q close ").centered())
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Magenta))
@@ -507,29 +785,55 @@ impl Widget for HelpScreen<'_> {
         block.render(popup, buf);
 
         let use_two_columns = inner.width >= TWO_COLUMN_MIN_WIDTH;
+        let max_h_scroll = if use_two_columns { 0 } else { HelpScreen::max_h_scroll(area) };
+        let needs_h_scroll = max_h_scroll > 0;
+
+        // Render footer
+        let footer_text = if needs_h_scroll {
+            " j/k scroll • h/l pan • g/G top/bottom • q close "
+        } else {
+            " j/k scroll • g/G top/bottom • q close "
+        };
+        let footer_y = popup.y + popup.height - 1;
+        let footer_x = popup.x + (popup.width.saturating_sub(footer_text.len() as u16)) / 2;
+        buf.set_string(footer_x, footer_y, footer_text, Style::default().fg(Color::DarkGray));
 
         if use_two_columns {
-            render_two_columns(inner, buf, self.state.scroll);
+            render_two_columns(inner, buf, self.state.scroll.v_scroll);
         } else {
-            render_single_column(inner, buf, self.state.scroll);
+            render_single_column(inner, buf, self.state.scroll.v_scroll, self.state.scroll.h_scroll);
+        }
+
+        // Render h-scroll indicator for single column
+        if needs_h_scroll {
+            let h_offset = self.state.scroll.h_scroll;
+            let indicator = if h_offset == 0 {
+                " → "
+            } else if h_offset >= max_h_scroll {
+                " ← "
+            } else {
+                " ←→ "
+            };
+            let ind_x = inner.x + inner.width.saturating_sub(indicator.len() as u16);
+            buf.set_string(ind_x, inner.y, indicator, Style::default().fg(Color::Cyan));
         }
     }
 }
 
-fn render_single_column(area: Rect, buf: &mut Buffer, scroll: usize) {
+fn render_single_column(area: Rect, buf: &mut Buffer, v_scroll: usize, h_scroll: usize) {
     let sections = help_sections();
     let lines = build_help_lines(&sections);
 
-    for (i, line) in lines.iter().enumerate().skip(scroll) {
-        let y = area.y + (i - scroll) as u16;
+    for (i, line) in lines.iter().enumerate().skip(v_scroll) {
+        let y = area.y + (i - v_scroll) as u16;
         if y >= area.y + area.height {
             break;
         }
-        render_help_line(area.x, y, area.width, line, buf);
+        render_help_line_scrollable(area.x, y, area.width, h_scroll, line, buf);
     }
 }
 
-fn render_two_columns(area: Rect, buf: &mut Buffer, scroll: usize) {
+fn render_two_columns(area: Rect, buf: &mut Buffer, v_scroll: usize) {
     let sections = help_sections();
     let (left_sections, right_sections) = split_sections_for_columns(&sections);
 
@@ -542,8 +846,8 @@ fn render_two_columns(area: Rect, buf: &mut Buffer, scroll: usize) {
 
     let max_lines = left_lines.len().max(right_lines.len());
 
-    for i in scroll..max_lines {
-        let y = area.y + (i - scroll) as u16;
+    for i in v_scroll..max_lines {
+        let y = area.y + (i - v_scroll) as u16;
         if y >= area.y + area.height {
             break;
         }
@@ -597,6 +901,25 @@ fn render_help_line(x: u16, y: u16, width: u16, line: &HelpLine, buf: &mut Buffe
             let desc_width = width.saturating_sub(16) as usize;
             let truncated: String = desc.chars().take(desc_width).collect();
             buf.set_string(desc_x, y, &truncated, Style::default().fg(Color::Gray));
+        }
+        HelpLine::Empty => {}
+    }
+}
+
+fn render_help_line_scrollable(base_x: u16, y: u16, view_width: u16, h_scroll: usize, line: &HelpLine, buf: &mut Buffer) {
+    match line {
+        HelpLine::Header(title) => {
+            render_text_at_virtual_x(buf, base_x, y, view_width, h_scroll,
+                0, title,
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        }
+        HelpLine::Binding(key, desc) => {
+            // Key at indent 4
+            render_text_at_virtual_x(buf, base_x, y, view_width, h_scroll,
+                4, key, Style::default().fg(Color::Cyan));
+            // Description at position 16
+            render_text_at_virtual_x(buf, base_x, y, view_width, h_scroll,
+                16, desc, Style::default().fg(Color::Gray));
         }
         HelpLine::Empty => {}
     }

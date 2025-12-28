@@ -18,30 +18,27 @@ pub fn log_action(
     audit_key: &DerivedKey,
     action: AuditAction,
     credential_id: Option<&str>,
+    credential_name: Option<&str>,
+    username: Option<&str>,
     details: Option<&str>,
 ) -> VaultResult<i64> {
-    let timestamp = chrono::Local::now();
-    
-    // Build message to sign
+    // HMAC signs all fields for tamper detection
     let message = format!(
-        "{}:{}",
+        "{}:{}:{}:{}:{}",
         action.as_str(),
         credential_id.unwrap_or(""),
+        credential_name.unwrap_or(""),
+        username.unwrap_or(""),
+        details.unwrap_or(""),
     );
 
-    let message = if let Some(d) = details {
-        format!("{}:{}", message, d)
-    } else {
-        message
-    };
-
-    // Compute HMAC
     let hmac = compute_hmac(audit_key.as_bytes(), &message);
 
-    // Create log entry
     let log = AuditLog::new(
         action,
         credential_id.map(|s| s.to_string()),
+        credential_name.map(|s| s.to_string()),
+        username.map(|s| s.to_string()),
         details.map(|s| s.to_string()),
         hmac,
     );
@@ -52,17 +49,15 @@ pub fn log_action(
 
 /// Verify an audit log entry's HMAC
 pub fn verify_log(audit_key: &DerivedKey, log: &AuditLog) -> bool {
+    // Must match the format used in log_action
     let message = format!(
-        "{}:{}",
+        "{}:{}:{}:{}:{}",
         log.action.as_str(),
         log.credential_id.as_deref().unwrap_or(""),
+        log.credential_name.as_deref().unwrap_or(""),
+        log.username.as_deref().unwrap_or(""),
+        log.details.as_deref().unwrap_or(""),
     );
-
-    let message = if let Some(d) = &log.details {
-        format!("{}:{}", message, d)
-    } else {
-        message
-    };
 
     let expected_hmac = compute_hmac(audit_key.as_bytes(), &message);
     expected_hmac == log.hmac
@@ -122,6 +117,8 @@ mod tests {
             &key,
             AuditAction::Create,
             Some("cred-123"),
+            Some("GitHub Token"),
+            Some("user@example.com"),
             Some("Created new credential"),
         )
         .unwrap();
@@ -130,6 +127,8 @@ mod tests {
 
         let logs = get_recent_logs(db.conn(), 10).unwrap();
         assert!(!logs.is_empty());
+        assert_eq!(logs[0].credential_name.as_deref(), Some("GitHub Token"));
+        assert_eq!(logs[0].username.as_deref(), Some("user@example.com"));
 
         Ok(())
     }
@@ -144,6 +143,8 @@ mod tests {
             &key,
             AuditAction::Read,
             Some("cred-456"),
+            Some("AWS Key"),
+            Some("admin"),
             None,
         )
         .unwrap();
@@ -166,6 +167,8 @@ mod tests {
             &key,
             AuditAction::Copy,
             Some("cred-789"),
+            Some("Secret Key"),
+            Some("user"),
             Some("Original details"),
         )
         .unwrap();
@@ -173,6 +176,31 @@ mod tests {
         let logs = get_recent_logs(db.conn(), 1).unwrap();
         let mut tampered_log = logs[0].clone();
         tampered_log.details = Some("Tampered details".to_string());
+
+        assert!(!verify_log(&key, &tampered_log));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tampered_name_fails_verification() -> CryptoResult<()> {
+        let db = Database::open_in_memory().unwrap();
+        let key = test_audit_key()?;
+
+        log_action(
+            db.conn(),
+            &key,
+            AuditAction::Update,
+            Some("cred-abc"),
+            Some("Original Name"),
+            Some("user"),
+            None,
+        )
+        .unwrap();
+
+        let logs = get_recent_logs(db.conn(), 1).unwrap();
+        let mut tampered_log = logs[0].clone();
+        tampered_log.credential_name = Some("Tampered Name".to_string());
 
         assert!(!verify_log(&key, &tampered_log));
 
@@ -188,10 +216,54 @@ mod tests {
         let hierarchy2 = KeyHierarchy::new(master2).unwrap();
         let key2 = hierarchy2.derive_audit_key()?;
 
-        log_action(db.conn(), &key1, AuditAction::Delete, Some("cred"), None).unwrap();
+        log_action(
+            db.conn(),
+            &key1,
+            AuditAction::Delete,
+            Some("cred"),
+            Some("Test"),
+            None,
+            None,
+        ).unwrap();
 
         let logs = get_recent_logs(db.conn(), 1).unwrap();
         assert!(!verify_log(&key2, &logs[0]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vault_actions_without_credentials() -> CryptoResult<()> {
+        let db = Database::open_in_memory().unwrap();
+        let key = test_audit_key()?;
+
+        // Test unlock action (no credential)
+        log_action(
+            db.conn(),
+            &key,
+            AuditAction::Unlock,
+            None,
+            None,
+            None,
+            Some("Vault initialized"),
+        ).unwrap();
+
+        // Test lock action (no credential)
+        log_action(
+            db.conn(),
+            &key,
+            AuditAction::Lock,
+            None,
+            None,
+            None,
+            None,
+        ).unwrap();
+
+        let logs = get_recent_logs(db.conn(), 2).unwrap();
+        
+        // Both should verify correctly
+        assert!(verify_log(&key, &logs[0])); // Lock (most recent)
+        assert!(verify_log(&key, &logs[1])); // Unlock
 
         Ok(())
     }

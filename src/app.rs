@@ -22,7 +22,7 @@ use crate::input::keymap::{
 use crate::input::modes::{InputMode, ModeState};
 use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ListViewState, LogsState, MessageType};
 use crate::ui::renderer::{Renderer, UiState, View};
-use crate::ui::components::popup::HelpState;
+use crate::ui::components::popup::{HelpState, HelpScreen, LogsScreen};
 use crate::vault::credential::DecryptedCredential;
 use crate::vault::manager::VaultState;
 use crate::vault::{audit, Vault};
@@ -120,7 +120,7 @@ impl App {
     /// Initialize vault with password
     pub fn initialize(&mut self, password: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.vault.initialize(password)?;
-        self.log_audit(AuditAction::Unlock, None, Some("vault initialized"))?;
+        self.log_audit(AuditAction::Unlock, None, None, None, Some("Vault Initialized!"))?;
         self.refresh_data()?;
         Ok(())
     }
@@ -142,7 +142,7 @@ impl App {
             }
             _ => {}
         }
-        self.log_audit(AuditAction::Unlock, None, None)?;
+        self.log_audit(AuditAction::Unlock, None, None, None, None)?;
         self.refresh_data()?;
         self.update_selected_detail()?;
         Ok(())
@@ -159,7 +159,7 @@ impl App {
     /// Lock vault
     pub fn lock(&mut self) {
         // Log before locking (need keys to compute HMAC)
-        let _ = self.log_audit(AuditAction::Lock, None, None);
+        let _ = self.log_audit(AuditAction::Lock, None, None, None, None);
         self.vault.lock();
         self.clear_credential();
     }
@@ -169,12 +169,14 @@ impl App {
         &self,
         action: AuditAction,
         credential_id: Option<&str>,
+        credential_name: Option<&str>,
+        username: Option<&str>,
         details: Option<&str>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let keys = self.vault.keys()?;
         let audit_key = keys.derive_audit_key()?;
         let db = self.vault.db()?;
-        audit::log_action(db.conn(), &audit_key, action, credential_id, details)?;
+        audit::log_action(db.conn(), &audit_key, action, credential_id, credential_name, username, details)?;
         Ok(())
     }
 
@@ -299,16 +301,19 @@ impl App {
             }
             InputMode::Confirm => confirm_action(key),
             InputMode::Help => {
-                let max = crate::ui::components::popup::HelpScreen::max_scroll(self.terminal_size);
+                let max_v = HelpScreen::max_scroll(self.terminal_size);
+                let max_h = HelpScreen::max_h_scroll(self.terminal_size);
                 match (key.code, key.modifiers) {
+                    // Close
+                    (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) |
                     (KeyCode::Char('q'), KeyModifiers::NONE) |
-                    (KeyCode::Esc, _) |
-                    (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    (KeyCode::Esc, _) => {
                         self.mode_state.to_normal();
                         return Ok(false);
                     }
+                    // Vertical scrolling
                     (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
-                        self.help_state.scroll_down(1, max);
+                        self.help_state.scroll_down(1, max_v);
                     }
                     (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
                         self.help_state.scroll_up(1);
@@ -317,30 +322,47 @@ impl App {
                         self.help_state.home();
                     }
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
-                        self.help_state.end(max);
+                        self.help_state.end(max_v);
                     }
                     (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                        self.help_state.scroll_down(10, max);
+                        self.help_state.scroll_down(10, max_v);
                     }
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                         self.help_state.scroll_up(10);
+                    }
+                    // Horizontal scrolling (for single-column mode on narrow terminals)
+                    (KeyCode::Char('h'), KeyModifiers::NONE) | (KeyCode::Left, _) => {
+                        self.help_state.scroll_left(5);
+                    }
+                    (KeyCode::Char('l'), KeyModifiers::NONE) | (KeyCode::Right, _) => {
+                        self.help_state.scroll_right(5, max_h);
+                    }
+                    (KeyCode::Char('0'), KeyModifiers::NONE) => {
+                        self.help_state.h_home();
+                    }
+                    (KeyCode::Char('$'), _) => {
+                        self.help_state.h_end(max_h);
                     }
                     _ => {}
                 }
                 return Ok(false);
             }
             InputMode::Logs => {
-                let visible = self.terminal_size.height.saturating_sub(12);
-                let max = self.logs_state.max_scroll(visible);
+                let visible = LogsScreen::visible_height(self.terminal_size);
+                let max_v = self.logs_state.max_scroll(visible);
+                let visible_width = LogsScreen::visible_width(self.terminal_size);
+                let max_h = self.logs_state.max_h_scroll(visible_width);
                 match (key.code, key.modifiers) {
-                    (KeyCode::Char('q'), KeyModifiers::NONE) |
+                    // Close
                     (KeyCode::Char('i'), KeyModifiers::NONE) |
+                    (KeyCode::Char('q'), KeyModifiers::NONE) |
                     (KeyCode::Esc, _) => {
                         self.mode_state.to_normal();
                         return Ok(false);
                     }
+                    // Vertical scrolling
                     (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
-                        self.logs_state.scroll_down(1, max);
+                        self.logs_state.scroll_down(1, max_v);
                     }
                     (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
                         self.logs_state.scroll_up(1);
@@ -349,13 +371,26 @@ impl App {
                         self.logs_state.home();
                     }
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
-                        self.logs_state.end(max);
+                        self.logs_state.end(max_v);
                     }
                     (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
-                        self.logs_state.scroll_down(10, max);
+                        self.logs_state.scroll_down(10, max_v);
                     }
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                         self.logs_state.scroll_up(10);
+                    }
+                    // Horizontal scrolling
+                    (KeyCode::Char('h'), KeyModifiers::NONE) | (KeyCode::Left, _) => {
+                        self.logs_state.scroll_left(5);
+                    }
+                    (KeyCode::Char('l'), KeyModifiers::NONE) | (KeyCode::Right, _) => {
+                        self.logs_state.scroll_right(5, max_h);
+                    }
+                    (KeyCode::Char('0'), KeyModifiers::NONE) => {
+                        self.logs_state.h_home();
+                    }
+                    (KeyCode::Char('$'), _) => {
+                        self.logs_state.h_end(max_h);
                     }
                     _ => {}
                 }
@@ -432,7 +467,6 @@ impl App {
         
         let db = self.vault.db()?;
         let key = self.vault.dek()?;
-
         if let Some(id) = &form.editing_id {
             // Update existing credential
             let mut cred = crate::db::get_credential(db.conn(), id)?;
@@ -441,7 +475,6 @@ impl App {
             cred.username = form.get_username();
             cred.url = form.get_url();
             cred.tags = form.get_tags();
-
             crate::vault::credential::update_credential(
                 db.conn(),
                 key,
@@ -449,8 +482,13 @@ impl App {
                 Some(form.get_secret()),
                 form.get_notes().as_deref(),
             )?;
-
-            self.log_audit(AuditAction::Update, Some(id), None)?;
+            self.log_audit(
+                AuditAction::Update,
+                Some(id),
+                Some(&cred.name),
+                cred.username.as_deref(),
+                None,
+            )?;
             self.set_message("Credential updated", MessageType::Success);
         } else {
             // Create new credential
@@ -465,8 +503,13 @@ impl App {
                 form.get_tags(),
                 form.get_notes().as_deref(),
             )?;
-
-            self.log_audit(AuditAction::Create, Some(&cred.id), None)?;
+            self.log_audit(
+                AuditAction::Create,
+                Some(&cred.id),
+                Some(&cred.name),
+                cred.username.as_deref(),
+                None,
+            )?;
             self.set_message("Credential created", MessageType::Success);
         }
 
@@ -573,7 +616,7 @@ impl App {
 
             Action::Select => {
                 if let Some(cred) = &self.selected_credential {
-                    self.log_audit(AuditAction::Read, Some(&cred.id), None)?;
+                    self.log_audit(AuditAction::Read, Some(&cred.id), Some(&cred.name), cred.username.as_deref(), None)?;
                 }
                 self.view = View::Detail;
             }
@@ -783,8 +826,8 @@ impl App {
             url: cred.url.clone(),
             notes: cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
             tags: cred.tags.clone(),
-            created_at: cred.created_at.format("%d-%b-%Y %H:%M").to_string(),
-            updated_at: cred.updated_at.format("%d-%b-%Y %H:%M").to_string(),
+            created_at: cred.created_at.format("%d-%b-%Y at %H:%M").to_string(),
+            updated_at: cred.updated_at.format("%d-%b-%Y at %H:%M").to_string(),
             totp_code,
             totp_remaining,
         }
@@ -807,38 +850,48 @@ impl App {
     }
 
     fn copy_secret(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (secret, cred_id) = match &self.selected_credential {
+        let (secret, cred_id, cred_name, cred_username) = match &self.selected_credential {
             Some(cred) => match &cred.secret {
-                Some(s) => (s.expose_secret().to_string(), cred.id.clone()),
+                Some(s) => (
+                    s.expose_secret().to_string(),
+                    cred.id.clone(),
+                    cred.name.clone(),
+                    cred.username.clone(),
+                ),
                 None => return Ok(()),
             },
             None => return Ok(()),
         };
 
         self.copy_to_clipboard(&secret)?;
-        self.log_audit(AuditAction::Copy, Some(&cred_id), Some("secret"))?;
+        self.log_audit(AuditAction::Copy, Some(&cred_id), Some(&cred_name), cred_username.as_deref(), Some("Secret"))?;
         self.set_message(&format!("Password copied ({}s)", self.config.clipboard_timeout.as_secs()), MessageType::Success);
         Ok(())
     }
 
     fn copy_username(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (username, cred_id) = match &self.selected_credential {
+        let (username, cred_id, cred_name, cred_username) = match &self.selected_credential {
             Some(cred) => match &cred.username {
-                Some(u) => (u.clone(), cred.id.clone()),
+                Some(u) => (
+                    u.clone(),
+                    cred.id.clone(),
+                    cred.name.clone(),
+                    cred.username.clone(),
+                ),
                 None => return Ok(()),
             },
             None => return Ok(()),
         };
 
         self.copy_to_clipboard(&username)?;
-        self.log_audit(AuditAction::Copy, Some(&cred_id), Some("username"))?;
+        self.log_audit(AuditAction::Copy, Some(&cred_id), Some(&cred_name), cred_username.as_deref(), Some("Username"))?;
         self.set_message(&format!("Username copied ({}s)", self.config.clipboard_timeout.as_secs()), MessageType::Success);
         Ok(())
     }
 
     fn copy_totp(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Extract what we need before borrowing self mutably
-        let (totp_secret, cred_id) = match &self.selected_credential {
+        let (totp_secret, cred_id, cred_name, cred_username) = match &self.selected_credential {
             Some(cred) if cred.credential_type == CredentialType::Totp => {
                 match &cred.secret {
                     Some(secret_str) => {
@@ -848,7 +901,7 @@ impl App {
                                 cred.name.clone(),
                                 "Vault-CLI".to_string(),
                             ));
-                        (secret, cred.id.clone())
+                        (secret, cred.id.clone(), cred.name.clone(), cred.username.clone())
                     }
                     None => return Ok(()),
                 }
@@ -859,7 +912,7 @@ impl App {
         let code = totp::generate_totp(&totp_secret)?;
         let remaining = totp::time_remaining(&totp_secret);
         self.copy_to_clipboard(&code)?;
-        self.log_audit(AuditAction::Copy, Some(&cred_id), Some("totp"))?;
+        self.log_audit(AuditAction::Copy, Some(&cred_id), Some(&cred_name), cred_username.as_deref(), Some("TOTP"))?;
         self.set_message(&format!("TOTP: {} ({}s remaining)", code, remaining), MessageType::Success);
         Ok(())
     }
@@ -951,8 +1004,10 @@ impl App {
             match action {
                 PendingAction::DeleteCredential(id) => {
                     let db = self.vault.db()?;
+                    // Get credential info BEFORE deleting
+                    let cred = crate::db::get_credential(db.conn(), &id)?;
                     crate::db::delete_credential(db.conn(), &id)?;
-                    self.log_audit(AuditAction::Delete, Some(&id), None)?;
+                    self.log_audit(AuditAction::Delete, Some(&id), Some(&cred.name), cred.username.as_deref(), None)?;
                     self.refresh_data()?;
                     self.set_message("Credential deleted", MessageType::Success);
                 }

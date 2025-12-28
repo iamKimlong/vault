@@ -86,6 +86,8 @@ fn create_schema(conn: &Connection) -> DbResult<()> {
             timestamp TEXT NOT NULL,
             action TEXT NOT NULL,
             credential_id TEXT,
+            credential_name TEXT,
+            username TEXT,
             details TEXT,
             hmac TEXT NOT NULL
         );
