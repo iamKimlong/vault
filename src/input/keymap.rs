@@ -33,7 +33,6 @@ pub enum Action {
 
     // View
     TogglePasswordVisibility,
-    ShowDetail,
     
     // Mode changes
     EnterCommand,
@@ -79,11 +78,13 @@ pub enum Action {
 pub fn normal_mode_action(key: KeyEvent, pending: Option<char>) -> (Action, Option<char>) {
     match (key.code, key.modifiers, pending) {
         // Navigation
-        (KeyCode::Char('j') | KeyCode::Down, _, _) => (Action::MoveDown, None),
-        (KeyCode::Char('k') | KeyCode::Up, _, _) => (Action::MoveUp, None),
-        (KeyCode::Char('g'), _, None) => (Action::None, Some('g')),
-        (KeyCode::Char('g'), _, Some('g')) => (Action::MoveToTop, None),
-        (KeyCode::Char('G'), _, _) => (Action::MoveToBottom, None),
+        (KeyCode::Char('j'), KeyModifiers::NONE, _) => (Action::MoveDown, None),
+        (KeyCode::Down, _, _) => (Action::MoveDown, None),
+        (KeyCode::Char('k'), KeyModifiers::NONE, _) => (Action::MoveUp, None),
+        (KeyCode::Up, _, _) => (Action::MoveUp, None),
+        (KeyCode::Char('g'), KeyModifiers::NONE, None) => (Action::None, Some('g')),
+        (KeyCode::Char('g'), KeyModifiers::NONE, Some('g')) => (Action::MoveToTop, None),
+        (KeyCode::Char('G'), KeyModifiers::SHIFT, _) => (Action::MoveToBottom, None),
         (KeyCode::Char('d'), KeyModifiers::CONTROL, _) => (Action::HalfPageDown, None),
         (KeyCode::Char('u'), KeyModifiers::CONTROL, _) => (Action::HalfPageUp, None),
         (KeyCode::PageDown, _, _) => (Action::PageDown, None),
@@ -91,38 +92,43 @@ pub fn normal_mode_action(key: KeyEvent, pending: Option<char>) -> (Action, Opti
 
         // Selection
         (KeyCode::Char('l'), KeyModifiers::CONTROL, _) => (Action::Clear, None),
-        (KeyCode::Enter | KeyCode::Char('l') | KeyCode::Right, _, _) => (Action::Select, None),
-        (KeyCode::Esc | KeyCode::Char('h') | KeyCode::Left, _, _) => (Action::Back, None),
+        (KeyCode::Enter, _, _) => (Action::Select, None),
+        (KeyCode::Char('l'), KeyModifiers::NONE, _) => (Action::Select, None),
+        (KeyCode::Right, _, _) => (Action::Select, None),
+        (KeyCode::Esc, _, _) => (Action::Back, None),
+        (KeyCode::Char('h'), KeyModifiers::NONE, _) => (Action::Back, None),
+        (KeyCode::Left, _, _) => (Action::Back, None),
 
         // CRUD
-        (KeyCode::Char('n'), _, _) => (Action::New, None),
-        (KeyCode::Char('e'), _, _) => (Action::Edit, None),
-        (KeyCode::Char('d'), _, None) => (Action::None, Some('d')),
-        (KeyCode::Char('d'), _, Some('d')) => (Action::Delete, None),
-        (KeyCode::Char('x'), _, _) => (Action::Delete, None),
+        (KeyCode::Char('n'), KeyModifiers::NONE, _) => (Action::New, None),
+        (KeyCode::Char('e'), KeyModifiers::NONE, _) => (Action::Edit, None),
+        (KeyCode::Char('d'), KeyModifiers::NONE, None) => (Action::None, Some('d')),
+        (KeyCode::Char('d'), KeyModifiers::NONE, Some('d')) => (Action::Delete, None),
+        (KeyCode::Char('x'), KeyModifiers::NONE, _) => (Action::Delete, None),
 
         // Clipboard
-        (KeyCode::Char('c') | KeyCode::Char('y'), _, None) => (Action::None, Some('y')),
-        (KeyCode::Char('y'), _, Some('y')) => (Action::CopyPassword, None),
-        (KeyCode::Char('c'), _, Some('y')) => (Action::CopyPassword, None),
-        (KeyCode::Char('u'), _, None) => (Action::CopyUsername, None),
-        (KeyCode::Char('t'), _, _) => (Action::CopyTotp, None),
+        (KeyCode::Char('c'), KeyModifiers::NONE, None) => (Action::None, Some('y')),
+        (KeyCode::Char('y'), KeyModifiers::NONE, None) => (Action::None, Some('y')),
+        (KeyCode::Char('y'), KeyModifiers::NONE, Some('y')) => (Action::CopyPassword, None),
+        (KeyCode::Char('c'), KeyModifiers::NONE, Some('y')) => (Action::CopyPassword, None),
+        (KeyCode::Char('u'), KeyModifiers::NONE, None) => (Action::CopyUsername, None),
+        (KeyCode::Char('t'), KeyModifiers::NONE, _) => (Action::CopyTotp, None),
 
         // View
-        (KeyCode::Char('s'), _, _) => (Action::TogglePasswordVisibility, None),
+        (KeyCode::Char('s'), KeyModifiers::CONTROL, _) => (Action::TogglePasswordVisibility, None),
 
         // Mode changes
-        (KeyCode::Char(':'), _, _) => (Action::EnterCommand, None),
-        (KeyCode::Char('/'), _, _) => (Action::EnterSearch, None),
-        (KeyCode::Char('?'), _, _) => (Action::ShowHelp, None),
+        (KeyCode::Char(':'), KeyModifiers::NONE | KeyModifiers::SHIFT, _) => (Action::EnterCommand, None),
+        (KeyCode::Char('/'), KeyModifiers::NONE, _) => (Action::EnterSearch, None),
+        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT, _) => (Action::ShowHelp, None),
 
         // Application
-        (KeyCode::Char('q'), _, _) => (Action::Quit, None),
-        (KeyCode::Char('Q'), _, _) => (Action::ForceQuit, None),
+        (KeyCode::Char('q'), KeyModifiers::NONE, _) => (Action::Quit, None),
+        (KeyCode::Char('Q'), KeyModifiers::SHIFT, _) => (Action::ForceQuit, None),
         (KeyCode::Char('r'), KeyModifiers::CONTROL, _) => (Action::Refresh, None),
         (KeyCode::Char('p'), KeyModifiers::CONTROL, _) => (Action::ChangePassword, None),
         (KeyCode::Char('i'), KeyModifiers::NONE, _) => (Action::ShowLogs, None),
-        (KeyCode::Char('L'), _, _) => (Action::Lock, None),
+        (KeyCode::Char('L'), KeyModifiers::SHIFT, _) => (Action::Lock, None),
 
         _ => (Action::None, None),
     }

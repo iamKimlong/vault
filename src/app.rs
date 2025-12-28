@@ -300,27 +300,29 @@ impl App {
             InputMode::Confirm => confirm_action(key),
             InputMode::Help => {
                 let max = crate::ui::components::popup::HelpScreen::max_scroll(self.terminal_size);
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('?') => {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('q'), KeyModifiers::NONE) |
+                    (KeyCode::Esc, _) |
+                    (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                         self.mode_state.to_normal();
                         return Ok(false);
                     }
-                    KeyCode::Char('j') | KeyCode::Down => {
+                    (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
                         self.help_state.scroll_down(1, max);
                     }
-                    KeyCode::Char('k') | KeyCode::Up => {
+                    (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
                         self.help_state.scroll_up(1);
                     }
-                    KeyCode::Char('g') => {
+                    (KeyCode::Char('g'), KeyModifiers::NONE) => {
                         self.help_state.home();
                     }
-                    KeyCode::Char('G') => {
+                    (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
                         self.help_state.end(max);
                     }
-                    KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
                         self.help_state.scroll_down(10, max);
                     }
-                    KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                         self.help_state.scroll_up(10);
                     }
                     _ => {}
@@ -330,27 +332,29 @@ impl App {
             InputMode::Logs => {
                 let visible = self.terminal_size.height.saturating_sub(12);
                 let max = self.logs_state.max_scroll(visible);
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Char('i') | KeyCode::Esc => {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('q'), KeyModifiers::NONE) |
+                    (KeyCode::Char('i'), KeyModifiers::NONE) |
+                    (KeyCode::Esc, _) => {
                         self.mode_state.to_normal();
                         return Ok(false);
                     }
-                    KeyCode::Char('j') | KeyCode::Down => {
+                    (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => {
                         self.logs_state.scroll_down(1, max);
                     }
-                    KeyCode::Char('k') | KeyCode::Up => {
+                    (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => {
                         self.logs_state.scroll_up(1);
                     }
-                    KeyCode::Char('g') => {
+                    (KeyCode::Char('g'), KeyModifiers::NONE) => {
                         self.logs_state.home();
                     }
-                    KeyCode::Char('G') => {
+                    (KeyCode::Char('G'), KeyModifiers::SHIFT) => {
                         self.logs_state.end(max);
                     }
-                    KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
                         self.logs_state.scroll_down(10, max);
                     }
-                    KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                         self.logs_state.scroll_up(10);
                     }
                     _ => {}
