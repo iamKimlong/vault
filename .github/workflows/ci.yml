@@ -3,17 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - README.md
   pull_request:
     branches: [main]
+    paths-ignore:
+      - README.md
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Run tests
         run: cargo test --verbose
