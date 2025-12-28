@@ -106,7 +106,7 @@ impl CredentialForm {
                 FormField::text("Username", false),
                 FormField::password("Password/Secret", true),
                 FormField::text("URL", false),
-                FormField::text("Tags", false),
+                FormField::text("Tags (multiple)", false),
                 FormField::multiline("Notes"),
             ],
             active_field: 0,
@@ -140,7 +140,7 @@ impl CredentialForm {
         form.fields[2].value = username.unwrap_or_default();
         form.fields[3].value = secret;
         form.fields[4].value = url.unwrap_or_default();
-        form.fields[5].value = tags.join(", ");
+        form.fields[5].value = tags.join(" ");
         form.fields[6].value = notes.unwrap_or_default();
 
         form
@@ -273,7 +273,7 @@ impl CredentialForm {
     pub fn get_tags(&self) -> Vec<String> {
         self.fields[5]
             .value
-            .split(',')
+            .split(' ')
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .collect()
