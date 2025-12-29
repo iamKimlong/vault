@@ -960,6 +960,7 @@ impl App {
             format!("Filtered by tags: {}", tags.join(" "))
         };
         self.set_message(&msg, MessageType::Info);
+        self.update_selected_detail();
         Ok(())
     }
 
@@ -1032,6 +1033,7 @@ impl App {
     fn search_credentials(&mut self, query: &str) -> Result<(), Box<dyn std::error::Error>> {
         if query.is_empty() {
             self.refresh_data()?;
+            self.update_selected_detail();
         } else {
             let db = self.vault.db()?;
             let results = crate::db::search_credentials(db.conn(), query)?;
@@ -1041,6 +1043,7 @@ impl App {
                 .collect();
             self.credentials = results;
             self.list_state.set_total(self.credential_items.len());
+            self.update_selected_detail();
         }
         Ok(())
     }
