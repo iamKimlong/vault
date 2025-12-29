@@ -823,6 +823,9 @@ impl App {
             Action::TogglePasswordVisibility => {
                 self.password_visible = !self.password_visible;
                 self.update_selected_detail()?;
+                if let Some(cred) = &self.selected_credential {
+                    self.log_audit(AuditAction::Read, Some(&cred.id), Some(&cred.name), cred.username.as_deref(), Some("Toggle Password Visibility"))?;
+                }
             }
 
             Action::Delete => {
