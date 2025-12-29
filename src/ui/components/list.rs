@@ -80,11 +80,7 @@ impl ListViewState {
         if self.total == 0 {
             return;
         }
-        let new_index = match self.selected {
-            Some(i) if i > 0 => i - 1,
-            Some(_) => self.total - 1, // Wrap to bottom
-            None => 0,
-        };
+        let new_index = self.selected.unwrap_or(0).saturating_sub(1);
         self.select(Some(new_index));
     }
 
@@ -92,11 +88,7 @@ impl ListViewState {
         if self.total == 0 {
             return;
         }
-        let new_index = match self.selected {
-            Some(i) if i < self.total - 1 => i + 1,
-            Some(_) => 0, // Wrap to top
-            None => 0,
-        };
+        let new_index = self.selected.map_or(0, |i| (i + 1).min(self.total - 1));
         self.select(Some(new_index));
     }
 
@@ -179,35 +171,56 @@ impl<'a> StatefulWidget for CredentialList<'a> {
     type State = ListViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let selected = state.selected();
+
         let items: Vec<ListItem> = self
             .items
             .iter()
-            .map(|item| {
+            .enumerate()
+            .map(|(i, item)| {
+                let is_selected = Some(i) == selected;
+            
+                let symbol = if is_selected {
+                    Span::styled(" ", Style::default()
+                        .fg(Color::Magenta)
+                        .bg(Color::DarkGray))
+                } else {
+                    Span::raw("  ")
+                };
+
                 let icon = item.credential_type.icon();
                 let type_color = type_color(item.credential_type);
 
+                let base_style = if is_selected {
+                    self.highlight_style
+                } else {
+                    Style::default()
+                };
+
                 let mut spans = vec![
-                    Span::styled(format!("{} ", icon), Style::default().fg(type_color)),
-                    Span::styled(&item.name, Style::default().fg(Color::White)),
+                    symbol,
+                    Span::styled(format!("{} ", icon), base_style.fg(type_color)),
+                    Span::styled(&item.name, base_style.fg(Color::White)),
                 ];
 
                 if self.show_username {
                     if let Some(ref username) = item.username {
                         spans.push(Span::styled(
                             format!(" ({})", username),
-                            Style::default().fg(Color::Cyan),
+                            base_style.fg(Color::Cyan),
                         ));
                     }
                 }
 
-                ListItem::new(Line::from(spans))
+                let mut list_item = ListItem::new(Line::from(spans));
+                if is_selected {
+                    list_item = list_item.style(self.highlight_style);
+                }
+                list_item
             })
             .collect();
 
-        let list = List::new(items)
-            .highlight_style(self.highlight_style)
-            .highlight_symbol("> ");
-
+        let list = List::new(items);
         let list = if let Some(block) = self.block {
             list.block(block)
         } else {
