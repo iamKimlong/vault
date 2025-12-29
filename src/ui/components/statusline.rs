@@ -137,7 +137,9 @@ impl<'a> HelpBar<'a> {
     pub fn for_mode(mode: InputMode) -> Self {
         let hints = match mode {
             InputMode::Normal => vec![
-                ("j/k", "navigate"),
+                ("L", "lock vault"),
+                ("i", "logs"),
+                ("t", "tags"),
                 ("/", "search"),
                 (":", "command"),
                 ("?", "help"),
