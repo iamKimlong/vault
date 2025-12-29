@@ -100,11 +100,12 @@ vault-cli
 | `dd` | Delete credential |
 | `yy/c` | Copy password |
 | `u` | Copy username |
-| `t` | Copy TOTP |
-| `s` | Toggle password visibility |
-| `Ctrl-p` | Change master key |
-| `Ctrl-l` | Clear message |
+| `T` | Copy TOTP |
+| `Ctrl+s` | Toggle password visibility |
+| `Ctrl+p` | Change master key |
+| `Ctrl+l` | Clear message |
 | `i` | View logs |
+| `t` | View tags |
 | `L` | Lock vault |
 | `/` | Search |
 | `:` | Command mode |
@@ -119,6 +120,7 @@ vault-cli
 - `:gen` - Generate password
 - `:audit` - Verify audit log integrity
 - `:log` - View logs
+- `:tag` - View existing tags
 - `:help` - Show help
 
 <a name="security"></a>
