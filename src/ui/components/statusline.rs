@@ -138,10 +138,6 @@ impl<'a> HelpBar<'a> {
         let hints = match mode {
             InputMode::Normal => vec![
                 ("j/k", "navigate"),
-                ("n", "new"),
-                ("Enter", "select"),
-                ("yy", "yank"),
-                ("dd", "delete"),
                 ("/", "search"),
                 (":", "command"),
                 ("?", "help"),
