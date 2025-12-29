@@ -102,7 +102,7 @@ impl CredentialForm {
         Self {
             fields: vec![
                 FormField::text("Name", true),
-                FormField::select("Type"),
+                FormField::select("Type").with_value(CredentialType::Password.display_name()),
                 FormField::text("Username", false),
                 FormField::password("Password/Secret", true),
                 FormField::text("URL", false),
@@ -389,7 +389,7 @@ impl<'a> Widget for CredentialFormWidget<'a> {
             let display_value = if field.field_type == FieldType::Select {
                 // Show type with icon
                 let icon = self.form.credential_type.icon();
-                format!("{} {} [Space/Ctrl+Space]", icon, field.value)
+                format!("{} {}  [Space/Ctrl+Space]", icon, field.value)
             } else if field.masked && !self.form.show_password {
                 "*".repeat(field.value.len().min(value_width as usize))
             } else {
