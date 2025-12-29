@@ -1223,6 +1223,7 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             vec![
                 ("Ctrl+s", "Toggle password"),
                 ("/", "Search"),
+                ("i", "Show logs"),
                 ("t", "Show tags"),
             ],
         ),
@@ -1247,8 +1248,6 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
                 ("Ctrl+l", "Clear message"),
                 ("Ctrl+p", "Change master key"),
                 ("L", "Lock vault"),
-                ("t", "View tags"),
-                ("i", "View logs"),
                 ("q", "Quit"),
             ],
         ),
