@@ -290,6 +290,79 @@ impl Vault {
 
         Ok(())
     }
+
+    /// Record a failed unlock attempt (pre-auth)
+    /// Opens DB temporarily just to write the metadata
+    pub fn record_failed_unlock(&self) -> VaultResult<()> {
+        if !self.config.path.exists() {
+            return Ok(()); // No vault yet, nothing to record
+        }
+        
+        let db_config = DatabaseConfig::with_path(&self.config.path);
+        let db = Database::open(db_config)?;
+        
+        // Increment counter
+        db.conn().execute(
+            r#"
+            INSERT INTO metadata (key, value) VALUES ('pending_failed_unlocks', '1')
+            ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)
+            "#,
+            [],
+        )?;
+        
+        // Update timestamp
+        let now = chrono::Local::now().format("%d-%b-%Y at %H:%M").to_string();
+        db.conn().execute(
+            r#"
+            INSERT INTO metadata (key, value) VALUES ('last_failed_unlock_at', ?1)
+            ON CONFLICT(key) DO UPDATE SET value = ?1
+            "#,
+            [&now],
+        )?;
+        
+        Ok(())
+    }
+
+    /// Get and clear pending failed attempts (call after successful unlock)
+    pub fn take_pending_failed_attempts(&self) -> VaultResult<Option<(u32, String)>> {
+        let db = self.db.as_ref().ok_or(VaultError::Locked)?;
+        
+        // Get current values
+        let count: Option<String> = db.conn()
+            .query_row(
+                "SELECT value FROM metadata WHERE key = 'pending_failed_unlocks'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+        
+        let timestamp: Option<String> = db.conn()
+            .query_row(
+                "SELECT value FROM metadata WHERE key = 'last_failed_unlock_at'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+        
+        // Clear them
+        db.conn().execute(
+            "DELETE FROM metadata WHERE key IN ('pending_failed_unlocks', 'last_failed_unlock_at')",
+            [],
+        )?;
+        
+        // Return if there were any
+        match (count, timestamp) {
+            (Some(c), Some(t)) => {
+                let n: u32 = c.parse().unwrap_or(0);
+                if n > 0 {
+                    Ok(Some((n, t)))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]

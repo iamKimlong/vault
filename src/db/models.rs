@@ -126,6 +126,7 @@ pub enum AuditAction {
     Import,
     Unlock,
     Lock,
+    FailedUnlock,
 }
 
 impl AuditAction {
@@ -140,6 +141,7 @@ impl AuditAction {
             Self::Import => "import",
             Self::Unlock => "unlock",
             Self::Lock => "lock",
+            Self::FailedUnlock => "failed_unlock",
         }
     }
 
@@ -154,6 +156,7 @@ impl AuditAction {
             "import" => Self::Import,
             "unlock" => Self::Unlock,
             "lock" => Self::Lock,
+            "failed_unlock" => Self::FailedUnlock,
             _ => Self::Read,
         }
     }

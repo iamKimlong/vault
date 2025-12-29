@@ -874,6 +874,7 @@ fn render_log_row(
         crate::db::AuditAction::Import => ("IMPORT", Color::Cyan),
         crate::db::AuditAction::Unlock => ("UNLOCK", Color::Green),
         crate::db::AuditAction::Lock => ("LOCK", Color::Yellow),
+        crate::db::AuditAction::FailedUnlock => ("FAILED", Color::Red),
     };
 
     let cred_name = log.credential_name.as_deref().unwrap_or("-");

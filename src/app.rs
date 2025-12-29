@@ -131,6 +131,21 @@ impl App {
     pub fn unlock(&mut self, password: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.vault.unlock(password)?;
 
+        // Check for pending failed attempts and log them properly
+        if let Ok(Some((count, timestamp))) = self.vault.take_pending_failed_attempts() {
+            self.log_audit(
+                AuditAction::FailedUnlock,
+                None,
+                None,
+                None,
+                Some(&format!("{} unlock attempt(s) on {}", count, timestamp)),
+            )?;
+            self.set_message(
+                &format!("Warning: {} failed unlock attempt(s) detected", count),
+                MessageType::Error,
+            );
+        }
+
         // Verify audit log integrity
         match self.verify_audit_logs() {
             Ok((0, total)) if total > 0 => {

@@ -249,6 +249,9 @@ fn run_unlock(
                     Err(_) => {
                         attempts += 1;
                         password.clear();
+
+                        let _ = app.vault.record_failed_unlock();
+
                         if attempts >= 5 {
                             app.should_quit = true;
                             return Ok(());
