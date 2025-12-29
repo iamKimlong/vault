@@ -48,11 +48,11 @@ impl DatabaseConfig {
     }
 }
 
-/// Get default database path (~/.vault-cli/vault.db)
+/// Get default database path (~/.vault/vault.db)
 fn default_db_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".vault-cli")
+        .join(".vault")
         .join("vault.db")
 }
 

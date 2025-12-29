@@ -1,8 +1,8 @@
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Security](#security) · [Dependencies](#dependencies)
 
-# Vault-CLI
+# Vault
 
-**vault-cli** is a **securely encrypted credential manager** with a vim-style TUI, built in Rust.
+**vault** is a **securely encrypted credential manager** with a vim-style TUI, built in Rust.
 
 Self-hosted, local-first architecture - your credentials never touch our servers.
 
@@ -23,7 +23,7 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Password Strength Checker:** Evaluates the security of user passwords in real-time, providing feedback on complexity, and length to help users create stronger, safer passwords.
 - **Audit Trail:** Extensive HMAC-signed logs for tamper detection and activity records
 - **Auto-clear clipboard:** Automatically overwrite or wipe clipboard memory with 0-bytes (Zeroization) after 15 seconds
-- **Auto-lock:** Automatically lock vault-cli after 5 minutes of inactivity
+- **Auto-lock:** Automatically lock vault after 5 minutes of inactivity
 
 <a name="installation"></a>
 ## ⚡ Installation
@@ -36,17 +36,17 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 
 **Unix (Linux/macOS):**
 ```bash
-git clone https://github.com/iamKimlong/vaultcli
-cd vaultcli
-cargo build --release && sudo install -m 755 target/release/vault-cli /usr/local/bin/vault-cli
+git clone https://github.com/iamKimlong/vault.git
+cd vault
+cargo build --release && sudo install -m 755 target/release/vault /usr/local/bin/vault
 ```
 
 **Windows:**
 ```powershell
-git clone https://github.com/iamKimlong/vaultcli
-cd vaultcli
+git clone https://github.com/iamKimlong/vault.git
+cd vault
 cargo build --release
-Copy-Item .\target\release\vault-cli.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"
+Copy-Item .\target\release\vault.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\"
 ```
 
 ### Alternative Methods
@@ -57,7 +57,7 @@ Copy-Item .\target\release\vault-cli.exe "$env:LOCALAPPDATA\Microsoft\WindowsApp
 ```bash
 cargo build --release
 # Unix
-mkdir -p ~/.local/bin && mv target/release/vault-cli ~/.local/bin/
+mkdir -p ~/.local/bin && mv target/release/vault ~/.local/bin/
 # Ensure ~/.local/bin is in your PATH
 ```
 </details>
@@ -79,13 +79,13 @@ cargo run
 ```
 </details>
 
-**📜 Note:** whenever you update the `vault-cli`, your credentials will remain unchanged unless you explicitly delete them.
+**📜 Note:** whenever you update the `vault`, your credentials will remain unchanged unless you explicitly delete them.
 
 <a name="usage"></a>
 ## 🚀 Usage
 
 ```bash
-vault-cli
+vault
 ```
 
 ### Normal Mode

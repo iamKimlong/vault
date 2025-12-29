@@ -40,7 +40,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         let vault_path = dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("vault-cli")
+            .join("vault")
             .join("vault.db");
 
         Self {
@@ -253,7 +253,7 @@ impl App {
         let confirm_message = self.pending_action.as_ref().map(|a| match a {
             PendingAction::DeleteCredential(_) => "Delete this credential?",
             PendingAction::LockVault => "Lock the vault?",
-            PendingAction::Quit => "Quit Vault-CLI?",
+            PendingAction::Quit => "Quit Vault?",
         });
 
         let mut state = UiState {
@@ -998,7 +998,7 @@ impl App {
                     .unwrap_or_else(|_| TotpSecret::new(
                         secret_str.expose_secret().to_string(),
                         cred.name.clone(),
-                        "Vault-CLI".to_string(),
+                        "Vault".to_string(),
                     ));
                 
                 if let Ok(code) = totp::generate_totp(&totp_secret) {
@@ -1098,7 +1098,7 @@ impl App {
                             .unwrap_or_else(|_| TotpSecret::new(
                                 secret_str.expose_secret().to_string(),
                                 cred.name.clone(),
-                                "Vault-CLI".to_string(),
+                                "Vault".to_string(),
                             ));
                         (secret, cred.id.clone(), cred.name.clone(), cred.username.clone())
                     }

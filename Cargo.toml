@@ -1,11 +1,11 @@
 [package]
-name = "vault-cli"
-version = "0.1.0"
+name = "vault"
+version = "0.2.0"
 edition = "2024"
 authors = ["Kimlong"]
 description = "A local-first encrypted credential manager with vim-style TUI"
 license = "GPL-3.0-only"
-repository = "https://github.com/kimlong/vaultcli"
+repository = "https://github.com/iamKimlong/vault"
 keywords = ["password", "credential", "manager", "tui", "encryption"]
 categories = ["command-line-utilities", "cryptography"]
 

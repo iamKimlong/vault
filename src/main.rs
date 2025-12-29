@@ -1,4 +1,4 @@
-//! Vault-cli - Encrypted Credential Manager
+//! Vault - Encrypted Credential Manager
 //!
 //! A local-first, vim-style TUI credential manager.
 
