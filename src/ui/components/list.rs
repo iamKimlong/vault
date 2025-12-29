@@ -7,10 +7,11 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, StatefulWidget, Widget},
+    widgets::{Block, List, ListItem, ListState, StatefulWidget, Widget},
 };
 
 use crate::db::models::CredentialType;
+use crate::ui::renderer::Renderer;
 
 /// Credential display item
 #[derive(Debug, Clone)]
@@ -207,7 +208,7 @@ impl<'a> StatefulWidget for CredentialList<'a> {
                     if let Some(ref username) = item.username {
                         spans.push(Span::styled(
                             format!(" ({})", username),
-                            base_style.fg(Color::Cyan),
+                            base_style.fg(Renderer::hex_color(0x4C566A)),
                         ));
                     }
                 }
