@@ -5,7 +5,7 @@
 mod actions;
 mod clipboard;
 mod config;
-mod credentials;
+mod credentials_handler;
 mod input;
 
 use std::time::{Duration, Instant};
@@ -16,8 +16,10 @@ use ratatui::Frame;
 use crate::db::models::Credential;
 use crate::db::AuditAction;
 use crate::input::modes::ModeState;
-use crate::ui::components::popup::{HelpState, LogsState, TagsState};
 use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ListViewState, MessageType};
+use crate::ui::components::help::HelpState;
+use crate::ui::components::logs::LogsState;
+use crate::ui::components::tags::TagsState;
 use crate::ui::renderer::{Renderer, UiState, View};
 use crate::vault::credential::DecryptedCredential;
 use crate::vault::manager::VaultState;
