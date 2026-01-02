@@ -15,7 +15,7 @@ use super::layout::{
     centered_rect_fixed, create_popup_block, highlight_row, render_empty_message, render_footer,
     render_separator_line, truncate_with_ellipsis,
 };
-use super::scroll::ScrollState;
+use super::scroll::{render_v_scroll_indicator, ScrollState};
 
 #[derive(Default)]
 pub struct TagsState {
@@ -133,19 +133,46 @@ impl Widget for TagsPopup<'_> {
             return;
         }
 
-        render_tags_content(inner, buf, self.state);
+        // Header takes 2 rows (header + separator)
+        let header_height = 2u16;
+        let list_area_height = inner.height.saturating_sub(header_height) as usize;
+        let max_v = self.state.tags.len().saturating_sub(list_area_height);
+        let needs_v_scroll = max_v > 0;
+
         render_footer(buf, popup, " j/k nav - Space select - Enter filter - q close ");
+
+        // Render header (always at top)
+        render_tags_header(inner, buf);
+        render_separator_line(buf, inner.x, inner.y + 1, inner.width);
+
+        // Calculate list area that reserves bottom line for scroll indicator
+        let list_start_y = inner.y + header_height;
+        let list_height = if needs_v_scroll {
+            list_area_height.saturating_sub(1)
+        } else {
+            list_area_height
+        };
+
+        // Calculate list area that reserves bottom line for scroll indicator
+        let scroll_offset = calculate_scroll_offset(self.state.selected, list_height);
+
+        render_tags_list(inner, buf, list_start_y, list_height, scroll_offset, self.state);
+
+        // Render scroll indicator in list area
+        let list_indicator_area = Rect::new(
+            inner.x,
+            inner.y + header_height,
+            inner.width,
+            inner.height.saturating_sub(header_height),
+        );
+        if needs_v_scroll {
+            render_v_scroll_indicator(buf, &list_indicator_area, scroll_offset, max_v, Color::Magenta);
+        }
     }
 }
 
 fn calculate_tags_height(count: usize, area_height: u16) -> u16 {
     (count as u16 + 4).min((area_height * 80) / 100).max(8)
-}
-
-fn render_tags_content(inner: Rect, buf: &mut Buffer, state: &TagsState) {
-    render_tags_header(inner, buf);
-    render_separator_line(buf, inner.x, inner.y + 1, inner.width);
-    render_tags_list(inner, buf, state);
 }
 
 fn render_tags_header(inner: Rect, buf: &mut Buffer) {
@@ -154,17 +181,20 @@ fn render_tags_header(inner: Rect, buf: &mut Buffer) {
     buf.set_string(inner.x + inner.width - 5, inner.y, "COUNT", style);
 }
 
-fn render_tags_list(inner: Rect, buf: &mut Buffer, state: &TagsState) {
-    let content_height = inner.height.saturating_sub(2) as usize;
-    let scroll_offset = calculate_scroll_offset(state.selected, content_height);
-    let content_y = inner.y + 2;
-
+fn render_tags_list(
+    inner: Rect,
+    buf: &mut Buffer,
+    start_y: u16,
+    visible_count: usize,
+    scroll_offset: usize,
+    state: &TagsState,
+) {
     for (i, (tag, count)) in state.tags.iter().enumerate().skip(scroll_offset) {
         let row = i - scroll_offset;
-        if row >= content_height {
+        if row >= visible_count {
             break;
         }
-        render_tag_row(inner, buf, content_y + row as u16, i, tag, *count, state);
+        render_tag_row(inner, buf, start_y + row as u16, i, tag, *count, state);
     }
 }
 

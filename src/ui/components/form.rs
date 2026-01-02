@@ -13,6 +13,8 @@ use ratatui::{
 use crate::db::models::CredentialType;
 use crate::ui::renderer::View;
 
+use super::scroll::render_v_scroll_indicator;
+
 #[derive(Debug, Clone)]
 pub struct FormField {
     pub label: &'static str,
@@ -323,7 +325,7 @@ impl<'a> CredentialFormWidget<'a> {
 
 fn calculate_form_area(area: Rect) -> Rect {
     let form_width = 70u16.min(area.width.saturating_sub(4));
-    let form_height = 20u16.min(area.height.saturating_sub(2));
+    let form_height = 30u16.min(area.height.saturating_sub(2));
     let form_x = area.x + (area.width.saturating_sub(form_width)) / 2;
     let form_y = area.y + (area.height.saturating_sub(form_height)) / 2;
     Rect::new(form_x, form_y, form_width, form_height)
@@ -342,15 +344,6 @@ fn render_form_block(buf: &mut Buffer, form_area: Rect, title: &str) -> Rect {
     let inner = block.inner(form_area);
     block.render(form_area, buf);
     inner
-}
-
-fn render_scroll_indicator(buf: &mut Buffer, inner: &Rect, at_top: bool) {
-    let (y, icon) = if at_top {
-        (inner.y, "")
-    } else {
-        (inner.y + inner.height - 2, "")
-    };
-    buf.set_string(inner.x + inner.width / 2, y, icon, Style::default().fg(Color::Magenta));
 }
 
 fn format_label(field: &FormField) -> String {
@@ -472,52 +465,55 @@ fn render_field(
     }
 }
 
-fn render_help_text(buf: &mut Buffer, inner: &Rect) {
-    let help_y = inner.y + inner.height - 1;
+fn render_help_footer(buf: &mut Buffer, inner: &Rect) {
+    let help_y = inner.y + inner.height;
     let help_text = Line::from(vec![
-        Span::styled("Tab", Style::default().fg(Color::Magenta)),
+        Span::styled("Tab", Style::default().fg(Color::White)),
         Span::raw(" next  "),
-        Span::styled("Shift+Tab", Style::default().fg(Color::Magenta)),
+        Span::styled("Shift+Tab", Style::default().fg(Color::White)),
         Span::raw(" prev  "),
-        Span::styled("Enter", Style::default().fg(Color::Magenta)),
+        Span::styled("Enter", Style::default().fg(Color::White)),
         Span::raw(" save  "),
-        Span::styled("Esc", Style::default().fg(Color::Magenta)),
+        Span::styled("Esc", Style::default().fg(Color::White)),
         Span::raw(" cancel  "),
-        Span::styled("Ctrl+s", Style::default().fg(Color::Magenta)),
+        Span::styled("Ctrl+s", Style::default().fg(Color::White)),
         Span::raw(" show pwd"),
     ]);
-    buf.set_line(inner.x, help_y, &help_text, inner.width);
+
+    let text_width = help_text.width() as u16;
+    let help_x = inner.x + inner.width.saturating_sub(text_width) / 2;
+
+    buf.set_line(help_x, help_y, &help_text, text_width);
 }
 
 impl<'a> Widget for CredentialFormWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let form_area = calculate_form_area(area);
         let inner = render_form_block(buf, form_area, self.title);
-
         let label_width = 18u16;
-        let visible_height = inner.height.saturating_sub(1);
+        let visible_height = inner.height + 1;
         let max_visible_fields = (visible_height / 2) as usize;
-
         let needs_scrolling = self.form.fields.len() > max_visible_fields;
         let scroll_offset = if needs_scrolling { self.form.scroll_offset } else { 0 };
 
-        let has_up_indicator = needs_scrolling && scroll_offset > 0;
-        let mut y = if has_up_indicator { inner.y + 1 } else { inner.y };
+        // Reserve bottom line for indicator when scrolling is needed
+        let fields_to_show = if needs_scrolling {
+            max_visible_fields.saturating_sub(1)
+        } else {
+            max_visible_fields
+        };
 
-        if has_up_indicator {
-            render_scroll_indicator(buf, &inner, true);
-        }
+        let max_v = self.form.fields.len().saturating_sub(fields_to_show);
 
+        let mut y = inner.y;
         for (i, field) in self.form.fields.iter().enumerate().skip(scroll_offset) {
-            if i >= scroll_offset + max_visible_fields { break; }
+            if i >= scroll_offset + fields_to_show { break; }
             render_field(buf, self.form, field, i, &inner, y, label_width);
             y += 2;
         }
-
-        if needs_scrolling && scroll_offset + max_visible_fields < self.form.fields.len() {
-            render_scroll_indicator(buf, &inner, false);
+        if needs_scrolling {
+            render_v_scroll_indicator(buf, &inner, scroll_offset, max_v, Color::Magenta);
         }
-
-        render_help_text(buf, &inner);
+        render_help_footer(buf, &inner);
     }
 }

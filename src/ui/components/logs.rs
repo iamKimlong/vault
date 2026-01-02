@@ -13,7 +13,7 @@ use super::layout::{
     centered_rect, create_popup_block, render_empty_message, render_footer, render_separator_line,
     render_text_at_virtual_x,
 };
-use super::scroll::ScrollState;
+use super::scroll::{render_h_scroll_indicator, render_v_scroll_indicator, ScrollState};
 
 #[derive(Clone)]
 struct LogsColumns {
@@ -177,12 +177,53 @@ impl Widget for LogsScreen<'_> {
         }
 
         let columns = self.state.columns();
+
+        // Header takes 2 rows (header + separator)
+        let header_height = 2u16;
+        let entries_area_height = inner.height.saturating_sub(header_height) as usize;
+        let max_v = self.state.logs.len().saturating_sub(entries_area_height);
         let max_h = (columns.total_width() as usize).saturating_sub(inner.width as usize);
+
+        let needs_v_scroll = max_v > 0;
         let needs_h_scroll = max_h > 0;
 
         render_logs_footer(buf, popup, needs_h_scroll);
-        render_logs_content(inner, buf, self.state, &columns);
-        render_logs_scroll_indicator(inner, buf, self.state.scroll.h_scroll, max_h, needs_h_scroll);
+
+        // Render header (always at top)
+        render_logs_header(inner, buf, self.state.scroll.h_scroll, &columns);
+        render_separator_line(buf, inner.x, inner.y + 1, inner.width);
+
+        // Calculate entries area that reserves bottom line for scroll indicator
+        let entries_start_y = inner.y + header_height;
+        let entries_height = if needs_v_scroll {
+            entries_area_height.saturating_sub(1)
+        } else {
+            entries_area_height
+        };
+
+        render_logs_entries(
+            inner.x,
+            entries_start_y,
+            inner.width,
+            entries_height,
+            self.state,
+            &columns,
+            buf,
+        );
+
+        // Render scroll indicators in entries area
+        let entries_indicator_area = Rect::new(
+            inner.x,
+            inner.y + header_height,
+            inner.width,
+            inner.height.saturating_sub(header_height),
+        );
+        if needs_v_scroll {
+            render_v_scroll_indicator(buf, &entries_indicator_area, self.state.scroll.v_scroll, max_v, Color::Magenta);
+        }
+        if needs_h_scroll {
+            render_h_scroll_indicator(buf, &inner, self.state.scroll.h_scroll, max_h, Color::Magenta);
+        }
     }
 }
 
@@ -193,13 +234,6 @@ fn render_logs_footer(buf: &mut Buffer, popup: Rect, needs_h_scroll: bool) {
         " j/k scroll - gg/G top/bottom - q close "
     };
     render_footer(buf, popup, text);
-}
-
-fn render_logs_content(inner: Rect, buf: &mut Buffer, state: &LogsState, columns: &LogsColumns) {
-    let h_offset = state.scroll.h_scroll;
-    render_logs_header(inner, buf, h_offset, columns);
-    render_separator_line(buf, inner.x, inner.y + 1, inner.width);
-    render_logs_entries(inner, buf, state, columns);
 }
 
 fn render_logs_header(inner: Rect, buf: &mut Buffer, h_offset: usize, columns: &LogsColumns) {
@@ -213,37 +247,24 @@ fn render_logs_header(inner: Rect, buf: &mut Buffer, h_offset: usize, columns: &
     render_text_at_virtual_x(buf, inner.x, inner.y, inner.width, h_offset, det_x, "DETAILS", style);
 }
 
-fn render_logs_entries(inner: Rect, buf: &mut Buffer, state: &LogsState, columns: &LogsColumns) {
-    let content_y = inner.y + 2;
-    let visible_height = inner.height.saturating_sub(2) as usize;
+fn render_logs_entries(
+    x: u16,
+    start_y: u16,
+    width: u16,
+    visible_count: usize,
+    state: &LogsState,
+    columns: &LogsColumns,
+    buf: &mut Buffer,
+) {
     let h_offset = state.scroll.h_scroll;
 
     for (i, log) in state.logs.iter().enumerate().skip(state.scroll.v_scroll) {
         let row = i - state.scroll.v_scroll;
-        if row >= visible_height {
+        if row >= visible_count {
             break;
         }
-        render_log_row(inner.x, content_y + row as u16, inner.width, h_offset, columns, log, buf);
+        render_log_row(x, start_y + row as u16, width, h_offset, columns, log, buf);
     }
-}
-
-fn render_logs_scroll_indicator(
-    inner: Rect,
-    buf: &mut Buffer,
-    h_offset: usize,
-    max_h: usize,
-    needed: bool,
-) {
-    if !needed {
-        return;
-    }
-    let indicator = match (h_offset == 0, h_offset >= max_h) {
-        (true, _) => "  ",
-        (_, true) => "  ",
-        _ => "  ",
-    };
-    let x = inner.x + inner.width.saturating_sub(indicator.len() as u16);
-    buf.set_string(x, inner.y, indicator, Style::default().fg(Color::Cyan));
 }
 
 fn render_log_row(
