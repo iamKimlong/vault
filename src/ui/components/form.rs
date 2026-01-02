@@ -468,16 +468,16 @@ fn render_field(
 fn render_help_footer(buf: &mut Buffer, inner: &Rect) {
     let help_y = inner.y + inner.height;
     let help_text = Line::from(vec![
-        Span::styled("Tab", Style::default().fg(Color::White)),
-        Span::raw(" next  "),
-        Span::styled("Shift+Tab", Style::default().fg(Color::White)),
-        Span::raw(" prev  "),
-        Span::styled("Enter", Style::default().fg(Color::White)),
-        Span::raw(" save  "),
-        Span::styled("Esc", Style::default().fg(Color::White)),
-        Span::raw(" cancel  "),
-        Span::styled("Ctrl+s", Style::default().fg(Color::White)),
-        Span::raw(" show pwd"),
+        Span::raw("Tab"),
+        Span::styled(" next  ", Style::default().fg(Color::White)),
+        Span::raw("Shift+Tab"),
+        Span::styled(" prev  ", Style::default().fg(Color::White)),
+        Span::raw("Enter"),
+        Span::styled(" save  ", Style::default().fg(Color::White)),
+        Span::raw("Esc"),
+        Span::styled(" cancel  ", Style::default().fg(Color::White)),
+        Span::raw("Ctrl+s"),
+        Span::styled(" show pwd", Style::default().fg(Color::White)),
     ]);
 
     let text_width = help_text.width() as u16;
