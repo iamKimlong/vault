@@ -7,6 +7,7 @@ use ratatui::{
     widgets::{Widget, Block, BorderType, Borders, Paragraph},
 };
 
+/// Percentage based layout
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let content_area = Rect::new(r.x, r.y, r.width, r.height.saturating_sub(2));
     let popup_layout = Layout::default()
@@ -27,6 +28,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
+/// Fixed sized layout
 pub fn centered_rect_fixed(width: u16, height: u16, r: Rect, unlocked: bool) -> Rect {
     let x = r.x + (r.width.saturating_sub(width)) / 2;
     let y = r.y + (r.height.saturating_sub(height)) / 2;

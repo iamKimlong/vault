@@ -82,6 +82,7 @@ fn mode_style(mode: InputMode) -> Style {
         InputMode::Help => base.bg(Color::Yellow),
         InputMode::Logs => base.bg(Color::Green),
         InputMode::Tags => base.bg(Color::Magenta),
+        InputMode::Export => base.bg(Color::Red),
     }
 }
 
@@ -204,6 +205,11 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
             ("Ctrl-d/u", "page"),
             ("q", "close"),
         ],
+        InputMode::Export => vec![
+            ("Tab", "Next"),
+            ("Enter", "Export"),
+            ("Esc", "Cancel"),
+        ]
     }
 }
 

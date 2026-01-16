@@ -304,7 +304,7 @@ impl Vault {
     }
 
     fn update_failed_unlock_timestamp(conn: &rusqlite::Connection) -> VaultResult<()> {
-        let now = chrono::Local::now().format("%d-%b-%Y at %H:%M").to_string();
+        let now = chrono::Local::now().format("%d-%b-%Y %H:%M").to_string();
         conn.execute(
             r#"
             INSERT INTO metadata (key, value) VALUES ('last_failed_unlock_at', ?1)

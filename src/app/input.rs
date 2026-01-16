@@ -7,6 +7,7 @@ use crate::ui::components::logs::LogsScreen;
 use crate::ui::components::tags::TagsPopup;
 use crate::ui::components::{CredentialForm, MessageType};
 use crate::ui::renderer::View;
+use crate::ui::components::export_dialog::ExportField;
 
 use super::App;
 
@@ -34,6 +35,7 @@ impl App {
             InputMode::Help => self.popup_action(key, help_key_handler),
             InputMode::Logs => self.popup_action(key, logs_key_handler),
             InputMode::Tags => self.popup_action(key, tags_key_handler),
+            InputMode::Export => self.handle_export_key(key),
             _ => Action::None,
         }
     }
@@ -55,9 +57,10 @@ impl App {
     }
 
     fn handle_popup_key(&mut self, key: KeyEvent, handler: KeyHandler) {
-        if let Some(action) = handler(self, key.code, key.modifiers) {
-            let _ = self.execute_action(action);
-        }
+        let Some(action) = handler(self, key.code, key.modifiers) else {
+            return;
+        };
+        let _ = self.execute_action(action);
     }
 
     fn handle_text_input(&mut self, action: Action) -> Action {
@@ -101,7 +104,6 @@ impl App {
         }
 
         let form = self.credential_form.as_mut().unwrap();
-
         dispatch_form_key(form, key.code, key.modifiers);
         Ok(false)
     }
@@ -110,10 +112,46 @@ impl App {
         let form = self.credential_form.as_ref().unwrap();
         if let Err(e) = form.validate() {
             self.set_message(&e, MessageType::Error);
-        } else {
-            self.save_credential_form()?;
+            return Ok(false);
         }
+        self.save_credential_form()?;
         Ok(false)
+    }
+
+    fn handle_export_key(&mut self, key: KeyEvent) -> Action {
+        let Some(dialog) = self.export_dialog.as_mut() else {
+            return Action::None;
+        };
+
+        match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => self.cancel_export(),
+            (KeyCode::Enter, KeyModifiers::NONE) => { let _ = self.execute_export(); }
+            (KeyCode::Tab, KeyModifiers::NONE) | (KeyCode::Down, _) => dialog.next_field(),
+            (KeyCode::BackTab, _) | (KeyCode::Up, _) => dialog.prev_field(),
+            (KeyCode::Char(' '), KeyModifiers::NONE) => handle_export_space(dialog),
+            (KeyCode::Char(' '), KeyModifiers::CONTROL) => handle_export_ctrl_space(dialog),
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => dialog.insert_char(c),
+            (KeyCode::Backspace, _) => dialog.delete_char(),
+            (KeyCode::Left, _) => dialog.cursor_left(),
+            (KeyCode::Right, _) => dialog.cursor_right(),
+            _ => {}
+        }
+
+        Action::None
+    }
+}
+
+fn handle_export_space(dialog: &mut crate::ui::components::export_dialog::ExportDialog) {
+    match dialog.active_field {
+        ExportField::Format => dialog.cycle_format(),
+        ExportField::Encryption => dialog.cycle_encryption_forward(),
+        _ => dialog.insert_char(' '),
+    }
+}
+
+fn handle_export_ctrl_space(dialog: &mut crate::ui::components::export_dialog::ExportDialog) {
+    if dialog.active_field == ExportField::Encryption {
+        dialog.cycle_encryption_backward();
     }
 }
 
@@ -132,16 +170,8 @@ fn dispatch_form_key(form: &mut CredentialForm, code: KeyCode, mods: KeyModifier
 }
 
 fn help_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Action> {
-    match (code, mods) {
-        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT)
-        | (KeyCode::Char('q'), KeyModifiers::NONE)
-        | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
-            return None;
-        }
-        (KeyCode::Char('i'), KeyModifiers::NONE) => return Some(Action::ShowLogs),
-        (KeyCode::Char('t'), KeyModifiers::NONE) => return Some(Action::ShowTags),
-        _ => {}
+    if let Some(action) = help_exit_action(app, code, mods) {
+        return action;
     }
 
     let was_pending = app.help_state.scroll.pending_g;
@@ -149,9 +179,28 @@ fn help_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
 
     let size = app.terminal_size;
     let visible = HelpScreen::visible_height(size) as usize;
-    let max_v = HelpScreen::max_scroll(size);
-    let max_h = HelpScreen::max_h_scroll(size);
+    let max_v = HelpScreen::max_scroll(size) as usize;
+    let max_h = HelpScreen::max_h_scroll(size) as usize;
 
+    help_scroll_action(app, code, mods, was_pending, visible, max_v, max_h);
+    None
+}
+
+fn help_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Option<Action>> {
+    match (code, mods) {
+        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT)
+        | (KeyCode::Char('q'), KeyModifiers::NONE)
+        | (KeyCode::Esc, _) => {
+            app.mode_state.to_normal();
+            Some(None)
+        }
+        (KeyCode::Char('i'), KeyModifiers::NONE) => Some(Some(Action::ShowLogs)),
+        (KeyCode::Char('t'), KeyModifiers::NONE) => Some(Some(Action::ShowTags)),
+        _ => None,
+    }
+}
+
+fn help_scroll_action(app: &mut App, code: KeyCode, mods: KeyModifiers, was_pending: bool, visible: usize, max_v: usize, max_h: usize) {
     match (code, mods) {
         (KeyCode::Char('g'), KeyModifiers::NONE) if was_pending => app.help_state.home(),
         (KeyCode::Char('g'), KeyModifiers::NONE) => app.help_state.scroll.pending_g = true,
@@ -168,34 +217,43 @@ fn help_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('$'), _) => app.help_state.h_end(max_h),
         _ => {}
     }
-
-    None
 }
 
 fn logs_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Action> {
+    if let Some(action) = logs_exit_action(app, code, mods) {
+        return action;
+    }
+
     let size = app.terminal_size;
     let state = &mut app.logs_state;
-
-    match (code, mods) {
-        (KeyCode::Char('i'), KeyModifiers::NONE)
-        | (KeyCode::Char('q'), KeyModifiers::NONE)
-        | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
-            return None;
-        }
-        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => return Some(Action::ShowHelp),
-        (KeyCode::Char('t'), KeyModifiers::NONE) => return Some(Action::ShowTags),
-        _ => {}
-    }
 
     let was_pending = state.scroll.pending_g;
     state.scroll.pending_g = false;
 
     let visible = LogsScreen::visible_height(size) as usize;
-    let max_v = state.max_scroll(visible as u16);
+    let max_v = state.max_scroll(visible as u16) as usize;
     let visible_width = LogsScreen::visible_width(size);
-    let max_h = state.max_h_scroll(visible_width);
+    let max_h = state.max_h_scroll(visible_width) as usize;
 
+    logs_scroll_action(state, code, mods, was_pending, visible, max_v, max_h);
+    None
+}
+
+fn logs_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Option<Action>> {
+    match (code, mods) {
+        (KeyCode::Char('i'), KeyModifiers::NONE)
+        | (KeyCode::Char('q'), KeyModifiers::NONE)
+        | (KeyCode::Esc, _) => {
+            app.mode_state.to_normal();
+            Some(None)
+        }
+        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Some(Action::ShowHelp)),
+        (KeyCode::Char('t'), KeyModifiers::NONE) => Some(Some(Action::ShowTags)),
+        _ => None,
+    }
+}
+
+fn logs_scroll_action(state: &mut crate::ui::components::logs::LogsState, code: KeyCode, mods: KeyModifiers, was_pending: bool, visible: usize, max_v: usize, max_h: usize) {
     match (code, mods) {
         (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => state.scroll_down(1, max_v),
         (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, _) => state.scroll_up(1),
@@ -212,30 +270,40 @@ fn logs_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('$'), _) => state.h_end(max_h),
         _ => {}
     }
-
-    None
 }
 
 fn tags_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Action> {
+    if let Some(action) = tags_exit_action(app, code, mods) {
+        return action;
+    }
+
     let size = app.terminal_size;
     let state = &mut app.tags_state;
-
-    match (code, mods) {
-        (KeyCode::Char('t'), KeyModifiers::NONE)
-        | (KeyCode::Char('q'), KeyModifiers::NONE)
-        | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
-            return None;
-        }
-        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => return Some(Action::ShowHelp),
-        (KeyCode::Char('i'), KeyModifiers::NONE) => return Some(Action::ShowLogs),
-        _ => {}
-    }
 
     let was_pending = state.scroll.pending_g;
     state.scroll.pending_g = false;
 
     let visible = TagsPopup::visible_height(size) as usize;
+
+    tags_scroll_action(app, code, mods, was_pending, visible)
+}
+
+fn tags_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<Option<Action>> {
+    match (code, mods) {
+        (KeyCode::Char('t'), KeyModifiers::NONE)
+        | (KeyCode::Char('q'), KeyModifiers::NONE)
+        | (KeyCode::Esc, _) => {
+            app.mode_state.to_normal();
+            Some(None)
+        }
+        (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Some(Action::ShowHelp)),
+        (KeyCode::Char('i'), KeyModifiers::NONE) => Some(Some(Action::ShowLogs)),
+        _ => None,
+    }
+}
+
+fn tags_scroll_action(app: &mut App, code: KeyCode, mods: KeyModifiers, was_pending: bool, visible: usize) -> Option<Action> {
+    let state = &mut app.tags_state;
 
     match (code, mods) {
         (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, _) => state.scroll_down(),
@@ -247,25 +315,21 @@ fn tags_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('u'), KeyModifiers::CONTROL) => state.page_up(visible / 2),
         (KeyCode::Char('f'), KeyModifiers::CONTROL) => state.page_down(visible.saturating_sub(1)),
         (KeyCode::Char('b'), KeyModifiers::CONTROL) => state.page_up(visible.saturating_sub(1)),
-        (KeyCode::Char(' '), KeyModifiers::NONE) => {
-            state.toggle_selected();
-            state.scroll_down();
-        }
-        (KeyCode::Enter, _) | (KeyCode::Char('l'), KeyModifiers::NONE) => {
-            return handle_tags_select(app);
-        }
+        (KeyCode::Char(' '), KeyModifiers::NONE) => tags_toggle_and_advance(state),
+        (KeyCode::Enter, _) | (KeyCode::Char('l'), KeyModifiers::NONE) => return handle_tags_select(app),
         _ => {}
     }
 
     None
 }
 
+fn tags_toggle_and_advance(state: &mut crate::ui::components::tags::TagsState) {
+    state.toggle_selected();
+    state.scroll_down();
+}
+
 fn handle_tags_select(app: &mut App) -> Option<Action> {
-    let tags = if app.tags_state.has_selection() {
-        app.tags_state.get_selected_tags()
-    } else {
-        app.tags_state.selected_tag().map(|t| vec![t.to_string()]).unwrap_or_default()
-    };
+    let tags = get_selected_tags(app);
 
     if tags.is_empty() {
         return None;
@@ -276,7 +340,17 @@ fn handle_tags_select(app: &mut App) -> Option<Action> {
     None
 }
 
-// Helper trait for CredentialForm
+fn get_selected_tags(app: &App) -> Vec<String> {
+    if app.tags_state.has_selection() {
+        return app.tags_state.get_selected_tags();
+    }
+
+    app.tags_state
+        .selected_tag()
+        .map(|t| vec![t.to_string()])
+        .unwrap_or_default()
+}
+
 impl crate::ui::components::CredentialForm {
     pub fn is_select_field(&self) -> bool {
         self.active_field().field_type == crate::ui::components::form::FieldType::Select

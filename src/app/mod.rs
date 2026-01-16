@@ -16,7 +16,7 @@ use ratatui::Frame;
 use crate::db::models::Credential;
 use crate::db::AuditAction;
 use crate::input::modes::ModeState;
-use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ListViewState, MessageType};
+use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ExportDialog, ListViewState, MessageType};
 use crate::ui::components::help::HelpState;
 use crate::ui::components::logs::LogsState;
 use crate::ui::components::tags::TagsState;
@@ -47,6 +47,7 @@ pub struct App {
     pub help_state: HelpState,
     pub logs_state: LogsState,
     pub tags_state: TagsState,
+    pub export_dialog: Option<ExportDialog>,
 }
 
 impl App {
@@ -73,6 +74,7 @@ impl App {
             help_state: HelpState::new(),
             logs_state: LogsState::new(),
             tags_state: TagsState::new(),
+            export_dialog: None,
         }
     }
 
@@ -186,6 +188,7 @@ impl App {
             help_state: &self.help_state,
             logs_state: &self.logs_state,
             tags_state: &self.tags_state,
+            export_dialog: self.export_dialog.as_ref(),
         };
 
         Renderer::render(frame, &mut state);

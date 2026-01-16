@@ -51,6 +51,7 @@ impl App {
             Action::Quit => return self.quit(),
             Action::ForceQuit => return Ok(true),
             Action::Lock => self.lock(),
+            Action::Export => self.export()?,
             Action::Refresh => self.refresh_data()?,
             Action::VerifyAudit => self.verify_and_report_audit(),
             Action::Invalid(cmd) => self.set_message(&format!("Unknown command: {}", cmd), MessageType::Error),

@@ -21,6 +21,8 @@ pub enum InputMode {
     Logs,
     /// Tags screen
     Tags,
+    /// Export dialog
+    Export,
 }
 
 impl InputMode {
@@ -35,6 +37,7 @@ impl InputMode {
             Self::Help => "HELP",
             Self::Logs => "LOG",
             Self::Tags => "TAG",
+            Self::Export => "EXPORT",
         }
     }
 
@@ -182,6 +185,11 @@ impl ModeState {
     pub fn set_buffer(&mut self, content: &str) {
         self.buffer = content.to_string();
         self.cursor = self.buffer.len();
+    }
+
+    /// Set mode to export
+    pub fn to_export(&mut self) {
+        self.set_mode(InputMode::Export);
     }
 }
 

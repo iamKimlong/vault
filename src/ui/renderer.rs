@@ -18,6 +18,7 @@ use crate::input::InputMode;
 use crate::ui::components::help::HelpState;
 use crate::ui::components::logs::{LogsScreen, LogsState};
 use crate::ui::components::tags::{TagsPopup, TagsState};
+use crate::ui::components::export_dialog::{ExportDialog, ExportDialogWidget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
@@ -40,6 +41,7 @@ pub struct UiState<'a> {
     pub help_state: &'a HelpState,
     pub logs_state: &'a LogsState,
     pub tags_state: &'a TagsState,
+    pub export_dialog: Option<&'a ExportDialog>,
 }
 
 pub struct PasswordPrompt<'a> {
@@ -177,6 +179,7 @@ fn render_overlays(frame: &mut Frame, area: Rect, state: &UiState) {
 
     render_tags_overlay(frame, state);
     render_logs_overlay(frame, state);
+    render_export_overlay(frame, area, state);
 
     if render_confirm_overlay(frame, area, state) {
         return;
@@ -205,6 +208,15 @@ fn render_logs_overlay(frame: &mut Frame, state: &UiState) {
         return;
     }
     LogsScreen::new(state.logs_state).render(frame.area(), frame.buffer_mut());
+}
+
+fn render_export_overlay(frame: &mut Frame, area: Rect, state: &UiState) {
+    if state.mode != InputMode::Export {
+        return;
+    }
+    if let Some(dialog) = state.export_dialog {
+        ExportDialogWidget::new(dialog).render(area, frame.buffer_mut());
+    }
 }
 
 fn render_confirm_overlay(frame: &mut Frame, area: Rect, state: &UiState) -> bool {

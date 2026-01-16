@@ -5,7 +5,14 @@ use crate::db::models::{Credential, CredentialType};
 use crate::db::AuditAction;
 use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, MessageType};
 use crate::ui::renderer::View;
+use crate::ui::components::ExportDialog;
 use crate::vault::credential::DecryptedCredential;
+use crate::vault::export::{
+    ExportData, ExportCredential,
+    export_to_file, credential_to_export,
+};
+use crate::crypto::decrypt_string;
+use std::path::Path;
 
 use super::App;
 
@@ -237,6 +244,89 @@ impl App {
         );
         Ok(())
     }
+
+    pub fn export(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if !self.vault.is_unlocked() {
+            self.set_message("Vault must be unlocked", MessageType::Error);
+            return Ok(());
+        }
+        self.export_dialog = Some(ExportDialog::new());
+        self.mode_state.to_export();
+        Ok(())
+    }
+
+    pub fn execute_export(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let dialog = self.export_dialog.as_ref().ok_or("No export dialog")?;
+
+        if let Err(e) = dialog.validate() {
+            self.set_export_error(e);
+            return Ok(());
+        }
+
+        let export_creds = self.build_export_credentials()?;
+        let data = ExportData::new(export_creds);
+
+        self.write_export_file(&data, dialog)?;
+
+        let path = dialog.path.clone();
+        self.finalize_export(&path)?;
+
+        Ok(())
+    }
+    
+    fn set_export_error(&mut self, error: String) {
+        if let Some(d) = self.export_dialog.as_mut() {
+            d.error = Some(error);
+        }
+    }
+    
+    fn build_export_credentials(&self) -> Result<Vec<ExportCredential>, Box<dyn std::error::Error>> {
+        let dek = self.vault.dek()?;
+        let mut export_creds = Vec::new();
+        
+        for cred in &self.credentials {
+            let secret = decrypt_string(dek.as_ref(), &cred.encrypted_secret)?;
+            let notes = self.decrypt_notes_if_present(dek.as_ref(), cred)?;
+            export_creds.push(credential_to_export(cred, secret, notes));
+        }
+        
+        Ok(export_creds)
+    }
+    
+    fn decrypt_notes_if_present(
+        &self,
+        dek: &[u8],
+        cred: &Credential,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        match &cred.encrypted_notes {
+            Some(n) => Ok(Some(decrypt_string(dek, n)?)),
+            None => Ok(None),
+        }
+    }
+    
+    fn write_export_file(
+        &self,
+        data: &ExportData,
+        dialog: &ExportDialog,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let passphrase_opt = dialog.get_passphrase();
+        let passphrase = passphrase_opt.as_ref().map(|s| s.expose_secret().as_ref());
+        export_to_file(data, dialog.format, dialog.encryption, passphrase, Path::new(&dialog.path))?;
+        Ok(())
+    }
+    
+    fn finalize_export(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.log_audit(AuditAction::Export, None, None, None, Some("Exported credentials"))?;
+        self.set_message(&format!("Exported to {}", path), MessageType::Success);
+        self.export_dialog = None;
+        self.mode_state.to_normal();
+        Ok(())
+    }
+    
+    pub fn cancel_export(&mut self) {
+        self.export_dialog = None;
+        self.mode_state.to_normal();
+    }
 }
 
 pub fn credential_to_item(cred: &Credential) -> CredentialItem {
@@ -261,8 +351,8 @@ pub fn build_detail(cred: &DecryptedCredential, password_visible: bool) -> Crede
         url: cred.url.clone(),
         notes: cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
         tags: cred.tags.clone(),
-        created_at: cred.created_at.format("%d-%b-%Y at %H:%M").to_string(),
-        updated_at: cred.updated_at.format("%d-%b-%Y at %H:%M").to_string(),
+        created_at: cred.created_at.format("%d-%b-%Y %H:%M").to_string(),
+        updated_at: cred.updated_at.format("%d-%b-%Y %H:%M").to_string(),
         totp_code,
         totp_remaining,
     }

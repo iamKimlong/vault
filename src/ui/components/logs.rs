@@ -48,8 +48,8 @@ impl LogsColumns {
             .unwrap_or(7) as u16;
 
         Self {
-            timestamp: 20,
-            action: 8,
+            timestamp: 17,
+            action: 6,
             name: max_name.max(4),
             username: max_username.max(8),
             details: max_details.max(7),
@@ -277,7 +277,7 @@ fn render_log_row(
     buf: &mut Buffer,
 ) {
     let (ts_x, act_x, name_x, user_x, det_x) = columns.positions();
-    let timestamp = log.timestamp.format("%d-%b-%Y at %H:%M").to_string();
+    let timestamp = log.timestamp.format("%d-%b-%Y %H:%M").to_string();
     let (action_str, action_color) = action_display(&log.action);
 
     let name = log.credential_name.as_deref().unwrap_or("-");
@@ -313,7 +313,7 @@ fn action_display(action: &AuditAction) -> (&'static str, Color) {
         AuditAction::Update => ("UPDATE", Color::Yellow),
         AuditAction::Delete => ("DELETE", Color::Red),
         AuditAction::Copy => ("COPY", Color::Magenta),
-        AuditAction::Export => ("EXPORT", Color::Cyan),
+        AuditAction::Export => ("EXPORT", Color::Yellow),
         AuditAction::Import => ("IMPORT", Color::Cyan),
         AuditAction::Unlock => ("UNLOCK", Color::Cyan),
         AuditAction::Lock => ("LOCK", Color::Yellow),

@@ -13,6 +13,7 @@ pub mod layout;
 pub mod logs;
 pub mod scroll;
 pub mod tags;
+pub mod export_dialog;
 
 // Re-exports
 pub use detail::{CredentialDetail, DetailView};
@@ -22,3 +23,4 @@ pub use statusline::{HelpBar, MessageType, StatusLine};
 pub use dialogs::{ConfirmDialog, PasswordDialog};
 pub use logs::{LogsScreen, LogsState};
 pub use help::{HelpScreen};
+pub use export_dialog::{ExportDialog, ExportDialogWidget};
