@@ -24,6 +24,10 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Audit Trail:** Extensive HMAC-signed logs for tamper detection and activity records
 - **Auto-clear clipboard:** Automatically overwrite or wipe clipboard memory with 0-bytes (Zeroization) after 15 seconds
 - **Auto-lock:** Automatically lock vault after 5 minutes regardless of activity
+- **Export:** Flexible credential export with multiple formats and encryption options
+    - **Plaintext:** Raw text or JSON (not recommended)
+    - **Encrypted (AES-256):** Text or JSON
+    - **Encrypted (ChaCha20-Poly1305):** Text or JSON
 
 <a name="installation"></a>
 ## ⚡ Installation
@@ -121,6 +125,7 @@ vault
 - `:audit` - Verify audit log integrity
 - `:log` - View logs
 - `:tag` - View existing tags
+- `:export` - Export credentials with options
 - `:help` - Show help
 
 <a name="security"></a>

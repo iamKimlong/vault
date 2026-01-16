@@ -334,6 +334,7 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             (":tag", "View tags"),
             (":new", "New credential"),
             (":gen", "Generate password"),
+            (":export", "Export Credentials"),
         ]),
         ("Other", vec![
             ("?", "Show this help"),
