@@ -67,7 +67,7 @@ pub fn render_v_scroll_indicator(buf: &mut Buffer, inner: &Rect, v_offset: usize
         (_, true) => "  ",   // at bottom, can scroll up
         _ => "  ",           // mid-scroll, can scroll both
     };
-    let x = inner.x + inner.width / 2;
+    let x = inner.x + (inner.width.saturating_sub(icon.chars().count() as u16)) / 2;
     let y = inner.y + inner.height.saturating_sub(1);
     buf.set_string(x, y, icon, Style::default().fg(color));
 }
