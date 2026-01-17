@@ -1,6 +1,6 @@
 [package]
 name = "vault"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["Kimlong"]
 description = "A local-first encrypted credential manager with vim-style TUI"
