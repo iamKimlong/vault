@@ -6,10 +6,9 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Widget},
 };
-use secrecy::{ExposeSecret, SecretString, zeroize::Zeroizing};
+use secrecy::{SecretString, zeroize::Zeroizing};
 
 use crate::vault::export::{ExportEncryption, ExportFormat};
 
@@ -341,7 +340,6 @@ impl Widget for ExportDialogWidget<'_> {
         y = render_path_field(self.dialog, buf, inner.x, y, label_width, value_width);
 
         render_error_if_present(self.dialog, buf, inner.x, y);
-        render_help_footer(buf, &inner);
     }
 }
 
@@ -621,23 +619,4 @@ fn fill_background(buf: &mut Buffer, x: u16, y: u16, width: u16, color: Color) {
             cell.set_bg(color);
         }
     }
-}
-
-fn render_help_footer(buf: &mut Buffer, inner: &Rect) {
-    let help_y = inner.y + inner.height;
-    let help_text = Line::from(vec![
-        Span::raw("Tab"),
-        Span::styled(" next  ", Style::default().fg(Color::White)),
-        Span::raw("Space"),
-        Span::styled(" cycle  ", Style::default().fg(Color::White)),
-        Span::raw("Enter"),
-        Span::styled(" export  ", Style::default().fg(Color::White)),
-        Span::raw("Esc"),
-        Span::styled(" cancel", Style::default().fg(Color::White)),
-    ]);
-
-    let text_width = help_text.width() as u16;
-    let help_x = inner.x + inner.width.saturating_sub(text_width) / 2;
-
-    buf.set_line(help_x, help_y, &help_text, text_width);
 }

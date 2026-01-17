@@ -196,19 +196,26 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
             ("y", "yes"),
             ("n", "no"),
         ],
-        InputMode::Help => vec![
-            ("q", "close"),
+        InputMode::Help | InputMode::Logs => vec![
+            ("esc", "close"),
             ("j/k", "scroll"),
+            ("ctrl-d/u", "page"),
+            ("h/l", "pan"),
+            ("0/$", "start/end"),
+            ("gg/G", "top/bottom"),
         ],
-        InputMode::Logs | InputMode::Tags => vec![
+        InputMode::Tags => vec![
+            ("esc", "close"),
             ("j/k", "scroll"),
-            ("Ctrl-d/u", "page"),
-            ("q", "close"),
+            ("ctrl-d/u", "page"),
+            ("space", "select"),
+            ("enter", "filter"),
         ],
         InputMode::Export => vec![
-            ("Tab", "Next"),
-            ("Enter", "Export"),
-            ("Esc", "Cancel"),
+            ("tab/shift-tab", "cycle next"),
+            ("space/ctrl-space", "cycle"),
+            ("enter", "export"),
+            ("esc", "cancel"),
         ]
     }
 }

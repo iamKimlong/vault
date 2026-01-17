@@ -12,7 +12,7 @@ use ratatui::{
 use crate::db::Credential;
 
 use super::layout::{
-    centered_rect_fixed, create_popup_block, highlight_row, render_empty_message, render_footer,
+    centered_rect_fixed, create_popup_block, highlight_row, render_empty_message,
     render_separator_line, truncate_with_ellipsis,
 };
 use super::scroll::{render_v_scroll_indicator, ScrollState};
@@ -139,34 +139,21 @@ impl Widget for TagsPopup<'_> {
         let max_v = self.state.tags.len().saturating_sub(list_area_height);
         let needs_v_scroll = max_v > 0;
 
-        render_footer(buf, popup, " j/k nav - Space select - Enter filter - q close ");
-
         // Render header (always at top)
         render_tags_header(inner, buf);
         render_separator_line(buf, inner.x, inner.y + 1, inner.width);
 
         // Calculate list area that reserves bottom line for scroll indicator
         let list_start_y = inner.y + header_height;
-        let list_height = if needs_v_scroll {
-            list_area_height.saturating_sub(1)
-        } else {
-            list_area_height
-        };
 
         // Calculate list area that reserves bottom line for scroll indicator
-        let scroll_offset = calculate_scroll_offset(self.state.selected, list_height);
+        let scroll_offset = calculate_scroll_offset(self.state.selected, list_area_height);
 
-        render_tags_list(inner, buf, list_start_y, list_height, scroll_offset, self.state);
+        render_tags_list(inner, buf, list_start_y, list_area_height, scroll_offset, self.state);
 
-        // Render scroll indicator in list area
-        let list_indicator_area = Rect::new(
-            inner.x,
-            inner.y + header_height,
-            inner.width,
-            inner.height.saturating_sub(header_height),
-        );
+        // Render scroll indicator
         if needs_v_scroll {
-            render_v_scroll_indicator(buf, &list_indicator_area, scroll_offset, max_v, Color::Magenta);
+            render_v_scroll_indicator(buf, &popup, scroll_offset, max_v, Color::Magenta);
         }
     }
 }

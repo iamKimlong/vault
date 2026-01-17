@@ -63,9 +63,9 @@ pub fn render_v_scroll_indicator(buf: &mut Buffer, inner: &Rect, v_offset: usize
         return;
     }
     let icon = match (v_offset == 0, v_offset >= max_v) {
-        (true, _) => "",   // at top, can scroll down
-        (_, true) => "",   // at bottom, can scroll up
-        _ => "",           // mid-scroll, can scroll both
+        (true, _) => "  ",   // at top, can scroll down
+        (_, true) => "  ",   // at bottom, can scroll up
+        _ => "  ",           // mid-scroll, can scroll both
     };
     let x = inner.x + inner.width / 2;
     let y = inner.y + inner.height.saturating_sub(1);
@@ -84,9 +84,9 @@ pub fn render_h_scroll_indicator(
         return;
     }
     let indicator = match (h_offset == 0, h_offset >= max_h) {
-        (true, _) => "",
-        (_, true) => "",
-        _ => "",
+        (true, _) => "  ",
+        (_, true) => "  ",
+        _ => "  ",
     };
     let x = inner.x + inner.width.saturating_sub(indicator.len() as u16);
     buf.set_string(x, inner.y, indicator, Style::default().fg(color));

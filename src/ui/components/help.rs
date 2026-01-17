@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Clear, Widget},
 };
 
-use super::layout::{centered_rect, create_popup_block, render_footer, render_text_at_virtual_x};
+use super::layout::{centered_rect, create_popup_block, render_text_at_virtual_x};
 use super::scroll::{render_h_scroll_indicator, render_v_scroll_indicator, ScrollState};
 
 #[derive(Default)]
@@ -76,7 +76,7 @@ impl<'a> HelpScreen<'a> {
     }
 
     pub fn max_scroll(area: Rect) -> usize {
-        let visible = Self::visible_height(area) as usize - 1; // Account for scroll indicator line
+        let visible = Self::visible_height(area) as usize;
         let content = Self::content_height(area);
         content.saturating_sub(visible)
     }
@@ -138,18 +138,9 @@ impl Widget for HelpScreen<'_> {
         let max_v = content_height.saturating_sub(visible_height);
         let max_h = if use_two_columns { 0 } else { HelpScreen::max_h_scroll(area) };
 
-        let needs_v_scroll = max_v > 0;
-        let needs_h_scroll = max_h > 0;
-
-        render_help_footer(buf, popup, needs_h_scroll);
-
         // Calculate content area that reserves bottom line for scroll indicator
-        let content_height_adjusted = if needs_v_scroll {
-            inner.height.saturating_sub(1)
-        } else {
-            inner.height
-        };
-        let content_area = Rect::new(inner.x, inner.y, inner.width, content_height_adjusted);
+        let content_height = inner.height;
+        let content_area = Rect::new(inner.x, inner.y, inner.width, content_height);
 
         if use_two_columns {
             render_help_two_columns(content_area, buf, self.state.scroll.v_scroll);
@@ -158,22 +149,16 @@ impl Widget for HelpScreen<'_> {
         }
 
         // Render scroll indicators
+        let needs_v_scroll = max_v > 0;
+        let needs_h_scroll = max_h > 0;
+
         if needs_v_scroll {
-            render_v_scroll_indicator(buf, &inner, self.state.scroll.v_scroll, max_v, Color::Magenta);
+            render_v_scroll_indicator(buf, &popup, self.state.scroll.v_scroll, max_v, Color::Magenta);
         }
         if needs_h_scroll {
-            render_h_scroll_indicator(buf, &inner, self.state.scroll.h_scroll, max_h, Color::Cyan);
+            render_h_scroll_indicator(buf, &popup, self.state.scroll.h_scroll, max_h, Color::Magenta);
         }
     }
-}
-
-fn render_help_footer(buf: &mut Buffer, popup: Rect, needs_h_scroll: bool) {
-    let text = if needs_h_scroll {
-        " j/k scroll - h/l pan - gg/G top/bottom - q close "
-    } else {
-        " j/k scroll - gg/G top/bottom - q close "
-    };
-    render_footer(buf, popup, text);
 }
 
 fn render_help_single_column(area: Rect, buf: &mut Buffer, v_scroll: usize, h_scroll: usize) {

@@ -10,7 +10,7 @@ use ratatui::{
 use crate::db::{AuditAction, AuditLog};
 
 use super::layout::{
-    centered_rect, create_popup_block, render_empty_message, render_footer, render_separator_line,
+    centered_rect, create_popup_block, render_empty_message, render_separator_line,
     render_text_at_virtual_x,
 };
 use super::scroll::{render_h_scroll_indicator, render_v_scroll_indicator, ScrollState};
@@ -153,7 +153,7 @@ impl<'a> LogsScreen<'a> {
 
     pub fn visible_height(area: Rect) -> u16 {
         let popup = centered_rect(85, 75, area);
-        popup.height.saturating_sub(5) // -1 to account for indicator line
+        popup.height.saturating_sub(4)
     }
 
     pub fn visible_width(area: Rect) -> u16 {
@@ -187,53 +187,31 @@ impl Widget for LogsScreen<'_> {
         let needs_v_scroll = max_v > 0;
         let needs_h_scroll = max_h > 0;
 
-        render_logs_footer(buf, popup, needs_h_scroll);
-
         // Render header (always at top)
         render_logs_header(inner, buf, self.state.scroll.h_scroll, &columns);
         render_separator_line(buf, inner.x, inner.y + 1, inner.width);
 
         // Calculate entries area that reserves bottom line for scroll indicator
         let entries_start_y = inner.y + header_height;
-        let entries_height = if needs_v_scroll {
-            entries_area_height.saturating_sub(1)
-        } else {
-            entries_area_height
-        };
 
         render_logs_entries(
             inner.x,
             entries_start_y,
             inner.width,
-            entries_height,
+            entries_area_height,
             self.state,
             &columns,
             buf,
         );
 
-        // Render scroll indicators in entries area
-        let entries_indicator_area = Rect::new(
-            inner.x,
-            inner.y + header_height,
-            inner.width,
-            inner.height.saturating_sub(header_height),
-        );
+        // Render scroll indicators
         if needs_v_scroll {
-            render_v_scroll_indicator(buf, &entries_indicator_area, self.state.scroll.v_scroll, max_v, Color::Magenta);
+            render_v_scroll_indicator(buf, &popup, self.state.scroll.v_scroll, max_v, Color::Magenta);
         }
         if needs_h_scroll {
-            render_h_scroll_indicator(buf, &inner, self.state.scroll.h_scroll, max_h, Color::Magenta);
+            render_h_scroll_indicator(buf, &popup, self.state.scroll.h_scroll, max_h, Color::Magenta);
         }
     }
-}
-
-fn render_logs_footer(buf: &mut Buffer, popup: Rect, needs_h_scroll: bool) {
-    let text = if needs_h_scroll {
-        " j/k scroll - h/l pan - 0/$ pan start/end - q close "
-    } else {
-        " j/k scroll - gg/G top/bottom - q close "
-    };
-    render_footer(buf, popup, text);
 }
 
 fn render_logs_header(inner: Rect, buf: &mut Buffer, h_offset: usize, columns: &LogsColumns) {
