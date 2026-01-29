@@ -1,9 +1,10 @@
 //! Password Generator
 //!
-//! Cryptographically secure password generation.
+//! Cryptographically secure password generation using OS-level entropy.
 
-use rand::{seq::SliceRandom, Rng};
-use rand::prelude::IteratorRandom; // provides .choose() for iterators
+use rand::rngs::OsRng;
+use rand::prelude::IteratorRandom;
+use rand::seq::SliceRandom;
 
 /// Password generation policy
 #[derive(Debug, Clone)]
@@ -19,7 +20,7 @@ pub struct PasswordPolicy {
     pub symbols: bool,
     /// Custom symbols to use (if symbols is true)
     pub custom_symbols: Option<String>,
-    /// Exclude ambiguous characters (0, O, l, 1, etc.)
+    /// Exclude ambiguous characters (0, O, l, 1, I, |)
     pub exclude_ambiguous: bool,
 }
 
@@ -82,66 +83,120 @@ const UPPERCASE: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
 const DIGITS: &str = "0123456789";
 const SYMBOLS: &str = "!@#$%^&*()-_=+[]{}|;:,.<>?";
-const AMBIGUOUS: &str = "0O1lI";
+const AMBIGUOUS: &str = "0O1lI|";
 
-/// Generate a password using the given policy
-pub fn generate_password(policy: &PasswordPolicy) -> String {
-    let mut rng = rand::thread_rng();
+// Word list for passphrase generation (EFF short wordlist subset)
+const WORDLIST: &[&str] = &[
+    "acid", "acorn", "acre", "acts", "afar", "affix", "aged", "agent", "agile", "aging",
+    "agony", "ahead", "aide", "aids", "aim", "ajar", "alarm", "album", "alert", "alike",
+    "alive", "alley", "allot", "allow", "alloy", "aloft", "alone", "amend", "amino", "ample",
+    "angel", "anger", "angle", "ankle", "apple", "april", "apron", "aqua", "area", "arena",
+    "argue", "arise", "armor", "army", "aroma", "array", "arrow", "arson", "ashen", "ashes",
+    "atlas", "atom", "attic", "audio", "avert", "avoid", "awake", "award", "awful", "axis",
+    "bacon", "badge", "badly", "baker", "balmy", "banjo", "barge", "barn", "basin", "batch",
+    "bath", "baton", "blade", "blank", "blast", "blaze", "bleak", "blend", "bless", "blimp",
+    "blind", "bliss", "block", "blunt", "blurt", "blush", "board", "boil", "bolt", "bonus",
+    "book", "booth", "boots", "botch", "boxer", "brace", "brain", "brake", "brand", "brass",
+    "brave", "bravo", "bread", "break", "breed", "brick", "bride", "brief", "bring", "brink",
+    "brisk", "broad", "broil", "brook", "broom", "brush", "buddy", "buggy", "build", "built",
+    "bulge", "bulk", "bully", "bunch", "bunny", "burst", "cable", "cache", "cadet", "cage",
+    "calm", "cameo", "canal", "candy", "canon", "cape", "cargo", "carol", "carry", "carve",
+    "case", "cash", "cause", "cedar", "chain", "chair", "champ", "chant", "chaos", "charm",
+    "chase", "cheek", "cheer", "chess", "chest", "chief", "child", "chill", "chip", "chomp",
+    "chord", "chore", "chunk", "churn", "cider", "cigar", "cinch", "city", "civic", "civil",
+    "claim", "clamp", "clash", "clasp", "class", "clay", "clean", "clear", "clerk", "click",
+    "cliff", "climb", "cling", "cloak", "clock", "clone", "cloth", "cloud", "clown", "club",
+    "coast", "coat", "cocoa", "code", "coil", "cola", "cold", "colon", "color", "comet",
+];
+
+/// Error type for password generation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PasswordError {
+    /// No characters available after applying policy filters
+    EmptyCharset,
+}
+
+impl std::fmt::Display for PasswordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PasswordError::EmptyCharset => {
+                write!(f, "No characters available with current policy settings")
+            }
+        }
+    }
+}
+
+impl std::error::Error for PasswordError {}
+
+/// Generate a password using the given policy.
+///
+/// Uses `OsRng` for cryptographically secure randomness.
+///
+/// # Errors
+/// Returns `PasswordError::EmptyCharset` if the policy results in no available characters.
+pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordError> {
+    let mut rng = OsRng;
     let mut charset = String::new();
     let mut required: Vec<char> = Vec::new();
 
+    // Helper to filter ambiguous characters
+    let filter_ambiguous = |chars: &str, exclude: bool| -> String {
+        if exclude {
+            chars.chars().filter(|c| !AMBIGUOUS.contains(*c)).collect()
+        } else {
+            chars.to_string()
+        }
+    };
+
     // Build character set and collect required characters
     if policy.uppercase {
-        let chars: String = if policy.exclude_ambiguous {
-            UPPERCASE.chars().filter(|c| !AMBIGUOUS.contains(*c)).collect()
-        } else {
-            UPPERCASE.to_string()
-        };
-        if let Some(c) = chars.chars().choose(&mut rng) {
-            required.push(c);
+        let chars = filter_ambiguous(UPPERCASE, policy.exclude_ambiguous);
+        if !chars.is_empty() {
+            if let Some(c) = chars.chars().choose(&mut rng) {
+                required.push(c);
+            }
+            charset.push_str(&chars);
         }
-        charset.push_str(&chars);
     }
 
     if policy.lowercase {
-        let chars: String = if policy.exclude_ambiguous {
-            LOWERCASE.chars().filter(|c| !AMBIGUOUS.contains(*c)).collect()
-        } else {
-            LOWERCASE.to_string()
-        };
-        if let Some(c) = chars.chars().choose(&mut rng) {
-            required.push(c);
+        let chars = filter_ambiguous(LOWERCASE, policy.exclude_ambiguous);
+        if !chars.is_empty() {
+            if let Some(c) = chars.chars().choose(&mut rng) {
+                required.push(c);
+            }
+            charset.push_str(&chars);
         }
-        charset.push_str(&chars);
     }
 
     if policy.digits {
-        let chars: String = if policy.exclude_ambiguous {
-            DIGITS.chars().filter(|c| !AMBIGUOUS.contains(*c)).collect()
-        } else {
-            DIGITS.to_string()
-        };
-        if let Some(c) = chars.chars().choose(&mut rng) {
-            required.push(c);
+        let chars = filter_ambiguous(DIGITS, policy.exclude_ambiguous);
+        if !chars.is_empty() {
+            if let Some(c) = chars.chars().choose(&mut rng) {
+                required.push(c);
+            }
+            charset.push_str(&chars);
         }
-        charset.push_str(&chars);
     }
 
     if policy.symbols {
-        let chars = policy
+        let base_symbols = policy
             .custom_symbols
             .as_ref()
             .map(|s| s.as_str())
             .unwrap_or(SYMBOLS);
-        if let Some(c) = chars.chars().choose(&mut rng) {
-            required.push(c);
+        // Apply ambiguous filter to custom symbols too
+        let chars = filter_ambiguous(base_symbols, policy.exclude_ambiguous);
+        if !chars.is_empty() {
+            if let Some(c) = chars.chars().choose(&mut rng) {
+                required.push(c);
+            }
+            charset.push_str(&chars);
         }
-        charset.push_str(chars);
     }
 
     if charset.is_empty() {
-        // Fallback to alphanumeric if no options selected
-        charset = format!("{}{}{}", UPPERCASE, LOWERCASE, DIGITS);
+        return Err(PasswordError::EmptyCharset);
     }
 
     let charset: Vec<char> = charset.chars().collect();
@@ -151,71 +206,83 @@ pub fn generate_password(policy: &PasswordPolicy) -> String {
     let mut password: Vec<char> = required;
 
     for _ in 0..remaining_length {
-        let idx = rng.gen_range(0..charset.len());
-        password.push(charset[idx]);
+        if let Some(&c) = charset.choose(&mut rng) {
+            password.push(c);
+        }
     }
 
     // Shuffle to randomize position of required characters
     password.shuffle(&mut rng);
 
-    password.into_iter().collect()
+    Ok(password.into_iter().collect())
 }
 
-/// Generate a passphrase from wordlist
+/// Generate a passphrase from random words.
+///
+/// Uses `OsRng` for cryptographically secure randomness.
+///
+/// # Arguments
+/// * `word_count` - Number of words in the passphrase
+/// * `separator` - String to place between words
 pub fn generate_passphrase(word_count: usize, separator: &str) -> String {
-    // Simple wordlist - in production, use a proper wordlist like EFF's
-    const WORDS: &[&str] = &[
-        "apple", "banana", "cherry", "dragon", "eagle", "forest", "garden", "harbor",
-        "island", "jungle", "knight", "lemon", "mountain", "noble", "ocean", "planet",
-        "quantum", "river", "sunset", "thunder", "umbrella", "valley", "winter", "yellow",
-        "zebra", "anchor", "bridge", "castle", "delta", "ember", "falcon", "glacier",
-        "horizon", "ivory", "jasper", "karma", "lotus", "marble", "nebula", "orbit",
-        "phoenix", "quartz", "radar", "safari", "temple", "ultra", "vertex", "whisper",
-    ];
-
-    let mut rng = rand::thread_rng();
-    let words: Vec<&str> = (0..word_count)
-        .map(|_| WORDS[rng.gen_range(0..WORDS.len())])
+    let mut rng = OsRng;
+    let words: Vec<&str> = WORDLIST
+        .choose_multiple(&mut rng, word_count)
+        .copied()
         .collect();
-
     words.join(separator)
 }
 
-/// Calculate password strength (0-100)
+/// Calculate password strength based on entropy (0-100).
+///
+/// Uses entropy calculation: bits = length × log₂(charset_size)
+///
+/// Scoring thresholds (based on NIST guidelines):
+/// - < 28 bits: Very Weak (0-20)
+/// - 28-35 bits: Weak (21-40)
+/// - 36-59 bits: Fair (41-60)
+/// - 60-127 bits: Strong (61-80)
+/// - 128+ bits: Very Strong (81-100)
 pub fn password_strength(password: &str) -> u32 {
     let len = password.len();
-    let mut score = 0u32;
-
-    // Length contribution (up to 40 points)
-    score += (len.min(20) * 2) as u32;
-
-    // Character variety (up to 40 points)
-    let has_lower = password.chars().any(|c| c.is_ascii_lowercase());
-    let has_upper = password.chars().any(|c| c.is_ascii_uppercase());
-    let has_digit = password.chars().any(|c| c.is_ascii_digit());
-    let has_symbol = password.chars().any(|c| !c.is_alphanumeric());
-
-    if has_lower {
-        score += 10;
-    }
-    if has_upper {
-        score += 10;
-    }
-    if has_digit {
-        score += 10;
-    }
-    if has_symbol {
-        score += 10;
+    if len == 0 {
+        return 0;
     }
 
-    // Bonus for mixing (up to 20 points)
-    let variety_count = [has_lower, has_upper, has_digit, has_symbol]
-        .iter()
-        .filter(|&&x| x)
-        .count();
-    score += (variety_count * 5) as u32;
+    // Calculate charset size based on character classes present
+    let mut charset_size = 0u32;
+    if password.chars().any(|c| c.is_ascii_lowercase()) {
+        charset_size += 26;
+    }
+    if password.chars().any(|c| c.is_ascii_uppercase()) {
+        charset_size += 26;
+    }
+    if password.chars().any(|c| c.is_ascii_digit()) {
+        charset_size += 10;
+    }
+    if password.chars().any(|c| !c.is_alphanumeric() && c.is_ascii()) {
+        charset_size += 32;
+    }
+    // Handle non-ASCII characters
+    if password.chars().any(|c| !c.is_ascii()) {
+        charset_size += 100;
+    }
 
-    score.min(100)
+    if charset_size == 0 {
+        return 0;
+    }
+
+    // Entropy in bits: log2(charset_size^len) = len * log2(charset_size)
+    let entropy = (len as f64) * (charset_size as f64).log2();
+
+    // Map entropy to 0-100 score
+    match entropy as u32 {
+        0..=27 => ((entropy / 28.0) * 20.0) as u32,
+        28..=35 => 20 + (((entropy - 28.0) / 8.0) * 20.0) as u32,
+        36..=59 => 40 + (((entropy - 36.0) / 24.0) * 20.0) as u32,
+        60..=127 => 60 + (((entropy - 60.0) / 68.0) * 20.0) as u32,
+        _ => 80 + (((entropy - 128.0).min(128.0) / 128.0) * 20.0) as u32,
+    }
 }
 
 /// Get strength label for a score
@@ -236,7 +303,7 @@ mod tests {
     #[test]
     fn test_generate_password_default() {
         let policy = PasswordPolicy::default();
-        let password = generate_password(&policy);
+        let password = generate_password(&policy).unwrap();
 
         assert_eq!(password.len(), 20);
         assert!(password.chars().any(|c| c.is_ascii_uppercase()));
@@ -247,7 +314,7 @@ mod tests {
     #[test]
     fn test_generate_pin() {
         let policy = PasswordPolicy::pin(6);
-        let password = generate_password(&policy);
+        let password = generate_password(&policy).unwrap();
 
         assert_eq!(password.len(), 6);
         assert!(password.chars().all(|c| c.is_ascii_digit()));
@@ -256,7 +323,7 @@ mod tests {
     #[test]
     fn test_generate_readable() {
         let policy = PasswordPolicy::readable(16);
-        let password = generate_password(&policy);
+        let password = generate_password(&policy).unwrap();
 
         assert_eq!(password.len(), 16);
         // Should not contain ambiguous characters
@@ -269,21 +336,81 @@ mod tests {
         let words: Vec<&str> = passphrase.split('-').collect();
 
         assert_eq!(words.len(), 4);
+        assert!(words.iter().all(|w| WORDLIST.contains(w)));
     }
 
     #[test]
-    fn test_password_strength() {
-        assert!(password_strength("abc") < 30);
-        assert!(password_strength("Abc123!@#") > 60);
-        assert!(password_strength("MyP@ssw0rd!2024XyZ") > 80);
+    fn test_password_strength_short_complex() {
+        // Short password with full variety should still be weak
+        let score = password_strength("Aa1!");
+        assert!(score <= 40, "4-char password scored {}, should be <= 40", score);
+    }
+
+    #[test]
+    fn test_password_strength_long_simple() {
+        // Long lowercase-only password should be fair/strong due to length
+        let score = password_strength("abcdefghijklmnopqrstuvwxyz");
+        assert!(score >= 40, "26-char password scored {}, should be >= 40", score);
+    }
+
+    #[test]
+    fn test_password_strength_strong() {
+        let score = password_strength("MyP@ssw0rd!2024XyZ");
+        assert!(score > 60, "Complex 18-char password scored {}, should be > 60", score);
+    }
+
+    #[test]
+    fn test_password_strength_empty() {
+        assert_eq!(password_strength(""), 0);
     }
 
     #[test]
     fn test_unique_passwords() {
         let policy = PasswordPolicy::default();
-        let p1 = generate_password(&policy);
-        let p2 = generate_password(&policy);
+        let p1 = generate_password(&policy).unwrap();
+        let p2 = generate_password(&policy).unwrap();
 
         assert_ne!(p1, p2);
+    }
+
+    #[test]
+    fn test_empty_charset_error() {
+        let policy = PasswordPolicy {
+            length: 16,
+            uppercase: false,
+            lowercase: false,
+            digits: false,
+            symbols: false,
+            custom_symbols: None,
+            exclude_ambiguous: false,
+        };
+
+        assert_eq!(generate_password(&policy), Err(PasswordError::EmptyCharset));
+    }
+
+    #[test]
+    fn test_custom_symbols_ambiguous_filter() {
+        let policy = PasswordPolicy {
+            length: 100,
+            uppercase: false,
+            lowercase: false,
+            digits: false,
+            symbols: true,
+            custom_symbols: Some("|!@#".to_string()),
+            exclude_ambiguous: true,
+        };
+
+        let password = generate_password(&policy).unwrap();
+        // Should not contain | since it's in AMBIGUOUS
+        assert!(!password.contains('|'), "Password should not contain ambiguous '|'");
+    }
+
+    #[test]
+    fn test_strength_labels() {
+        assert_eq!(strength_label(10), "Very Weak");
+        assert_eq!(strength_label(30), "Weak");
+        assert_eq!(strength_label(50), "Fair");
+        assert_eq!(strength_label(70), "Strong");
+        assert_eq!(strength_label(90), "Very Strong");
     }
 }
