@@ -236,7 +236,7 @@ impl App {
     }
 
     pub fn generate_and_copy_password(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let password = crate::crypto::generate_password(&crate::crypto::PasswordPolicy::default());
+        let password = crate::crypto::generate_password(&crate::crypto::PasswordPolicy::default())?;
         super::clipboard::copy_with_timeout(&password, self.config.clipboard_timeout);
         self.set_message(
             &format!("Generated: {} (copied for {}s)", password, self.config.clipboard_timeout.as_secs()),
