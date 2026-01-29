@@ -304,12 +304,12 @@ fn default_export_path(format: ExportFormat, encryption: ExportEncryption) -> St
     let home_path = dirs::home_dir();
     match home_path {
         Some(p) => build_export_path_from_home(p, format_ext, enc_ext),
-        None => format!("./vault-export{}{}", format_ext, enc_ext),
+        None => format!("./vault_export{}{}", format_ext, enc_ext),
     }
 }
 
 fn build_export_path_from_home(home: std::path::PathBuf, format_ext: &str, enc_ext: &str) -> String {
-    home.join(format!("vault-export{}{}", format_ext, enc_ext))
+    home.join(format!("vault_export{}{}", format_ext, enc_ext))
         .to_string_lossy()
         .into_owned()
 }
