@@ -37,11 +37,12 @@ impl App {
     }
 
     pub fn search_credentials(&mut self, query: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.search_query = if query.is_empty() { None } else { Some(query.to_string()) };
+        
         if query.is_empty() {
             self.refresh_data()?;
             return self.update_selected_detail();
         }
-
         let db = self.vault.db()?;
         let results = crate::db::search_credentials(db.conn(), query)?;
         self.credential_items = results.iter().map(|c| credential_to_item(c)).collect();
@@ -136,7 +137,13 @@ impl App {
         }
 
         self.view = return_to;
-        self.refresh_data()?;
+        
+        if let Some(query) = self.search_query.clone() {
+            self.search_credentials(&query)?;
+        } else {
+            self.refresh_data()?;
+        }
+        
         self.update_selected_detail()
     }
 
@@ -190,7 +197,11 @@ impl App {
         let cred = crate::db::get_credential(db.conn(), id)?;
         crate::db::delete_credential(db.conn(), id)?;
         self.log_audit(AuditAction::Delete, Some(id), Some(&cred.name), cred.username.as_deref(), None)?;
-        self.refresh_data()?;
+        if let Some(query) = self.search_query.clone() {
+            self.search_credentials(&query)?;
+        } else {
+            self.refresh_data()?;
+        }
         self.set_message("Credential deleted", MessageType::Success);
         Ok(())
     }

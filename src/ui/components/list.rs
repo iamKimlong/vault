@@ -247,30 +247,45 @@ impl<'a> StatefulWidget for CredentialList<'a> {
 pub struct EmptyState<'a> {
     message: &'a str,
     hint: Option<&'a str>,
+    block: Option<Block<'a>>,
 }
 
 impl<'a> EmptyState<'a> {
     pub fn new(message: &'a str) -> Self {
-        Self { message, hint: None }
+        Self { message, hint: None, block: None }
     }
 
     pub fn hint(mut self, hint: &'a str) -> Self {
         self.hint = Some(hint);
         self
     }
-}
 
-fn center_x(area: &Rect, text_len: usize) -> u16 {
-    area.x + (area.width.saturating_sub(text_len as u16)) / 2
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
+    }
 }
 
 impl<'a> Widget for EmptyState<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let center_y = area.y + area.height / 2;
-        let msg_x = center_x(&area, self.message.len());
+        let inner = match &self.block {
+            Some(block) => {
+                let inner = block.inner(area);
+                block.clone().render(area, buf);
+                inner
+            }
+            None => area,
+        };
+
+        let center_y = inner.y + inner.height / 2;
+        let msg_x = center_x(&inner, self.message.len());
         buf.set_string(msg_x, center_y, self.message, Style::default().fg(Color::DarkGray));
-        render_optional_hint(buf, &area, center_y, self.hint);
+        render_optional_hint(buf, &inner, center_y, self.hint);
     }
+}
+
+fn center_x(area: &Rect, text_len: usize) -> u16 {
+    area.x + (area.width.saturating_sub(text_len as u16)) / 2
 }
 
 fn render_optional_hint(buf: &mut Buffer, area: &Rect, center_y: u16, hint: Option<&str>) {

@@ -33,6 +33,7 @@ pub struct UiState<'a> {
     pub credentials: &'a [CredentialItem],
     pub list_state: &'a mut ListViewState,
     pub selected_detail: Option<&'a CredentialDetail>,
+    pub search_query: Option<&'a str>,
     pub command_buffer: Option<&'a str>,
     pub message: Option<(&'a str, MessageType)>,
     pub confirm_message: Option<&'a str>,
@@ -102,6 +103,10 @@ fn render_status_line(frame: &mut Frame, area: Rect, state: &UiState) {
         status = status.message(msg, msg_type);
     }
 
+    if let Some(ref query) = state.search_query {
+        status = status.search_query(query);
+    }
+
     if let Some(selected) = state.list_state.selected() {
         status = status.item_count(selected, state.list_state.total);
     }
@@ -116,7 +121,8 @@ fn render_help_bar(frame: &mut Frame, area: Rect, mode: InputMode) {
 
 fn render_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
     if state.credentials.is_empty() {
-        let empty = EmptyState::new("No credentials").hint("Press 'n' to add one");
+        let empty = EmptyState::new("No credentials found")
+            .hint("Press 'n' to add one");
         frame.render_widget(empty, area);
         return;
     }
@@ -145,7 +151,19 @@ fn render_detail_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
 fn render_detail_panel(frame: &mut Frame, area: Rect, detail: Option<&CredentialDetail>) {
     match detail {
         Some(d) => frame.render_widget(DetailView::new(d), area),
-        None => frame.render_widget(EmptyState::new("Select a credential"), area),
+        None => {
+            let block = Block::default()
+                .title(" Detail ")
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::DarkGray));
+            frame.render_widget(
+                EmptyState::new("No credential selected")
+                    .hint("Select from list or press 'n' to add")
+                    .block(block),
+                area
+            );
+        }
     }
 }
 

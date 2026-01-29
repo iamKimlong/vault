@@ -37,6 +37,7 @@ pub struct StatusLine<'a> {
     message: Option<(&'a str, MessageType)>,
     vault_name: Option<&'a str>,
     item_count: Option<(usize, usize)>,
+    search_query: Option<&'a str>,
 }
 
 impl<'a> StatusLine<'a> {
@@ -47,6 +48,7 @@ impl<'a> StatusLine<'a> {
             message: None,
             vault_name: None,
             item_count: None,
+            search_query: None,
         }
     }
 
@@ -67,6 +69,11 @@ impl<'a> StatusLine<'a> {
 
     pub fn item_count(mut self, selected: usize, total: usize) -> Self {
         self.item_count = Some((selected, total));
+        self
+    }
+
+    pub fn search_query(mut self, query: &'a str) -> Self {
+        self.search_query = Some(query);
         self
     }
 }
@@ -122,8 +129,16 @@ fn render_command_or_message(
     }
 }
 
-fn build_right_text(item_count: Option<(usize, usize)>, vault_name: Option<&str>) -> String {
+fn build_right_text(
+    search_query: Option<&str>,
+    item_count: Option<(usize, usize)>,
+    vault_name: Option<&str>,
+) -> String {
     let mut right_parts: Vec<String> = Vec::new();
+
+    if let Some(query) = search_query {
+        right_parts.push(format!("/{}", query));
+    }
 
     if let Some((selected, total)) = item_count {
         right_parts.push(format!("{}/{}", selected + 1, total));
@@ -136,10 +151,40 @@ fn build_right_text(item_count: Option<(usize, usize)>, vault_name: Option<&str>
     right_parts.join(" ")
 }
 
-fn render_right_section(buf: &mut Buffer, area: Rect, right_text: &str) {
-    let right_x = area.x + area.width.saturating_sub(right_text.len() as u16 + 1);
-    let style = Style::default().fg(Color::Gray).bg(Color::DarkGray);
-    buf.set_string(right_x, area.y, right_text, style);
+fn render_right_section(
+    buf: &mut Buffer,
+    area: Rect,
+    search_query: Option<&str>,
+    item_count: Option<(usize, usize)>,
+    vault_name: Option<&str>,
+) {
+    let mut spans: Vec<Span> = Vec::new();
+    if let Some(query) = search_query {
+        spans.push(Span::styled("Search: ", Style::default().fg(Color::Yellow).bg(Color::DarkGray)));
+        spans.push(Span::styled(query, Style::default().fg(Color::Magenta).bg(Color::DarkGray).add_modifier(Modifier::BOLD)));
+    }
+    if let Some((selected, total)) = item_count {
+        spans.push(Span::styled("  ", Style::default().bg(Color::DarkGray)));
+        spans.push(Span::styled(
+            (selected + 1).to_string(),
+            Style::default().fg(Color::Cyan).bg(Color::DarkGray).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled("/", Style::default().fg(Color::White).bg(Color::DarkGray)));
+        spans.push(Span::styled(
+            total.to_string(),
+            Style::default().fg(Color::Cyan).bg(Color::DarkGray),
+        ));
+    }
+    if let Some(vault) = vault_name {
+        if !spans.is_empty() {
+            spans.push(Span::styled(" ", Style::default().bg(Color::DarkGray)));
+        }
+        spans.push(Span::styled(vault, Style::default().fg(Color::Gray).bg(Color::DarkGray)));
+    }
+    let line = Line::from(spans);
+    let width = line.width() as u16;
+    let x = area.x + area.width.saturating_sub(width + 1);
+    buf.set_line(x, area.y, &line, width);
 }
 
 impl<'a> Widget for StatusLine<'a> {
@@ -154,8 +199,7 @@ impl<'a> Widget for StatusLine<'a> {
 
         render_command_or_message(buf, x, area.y, self.mode, self.command_buffer, self.message);
 
-        let right_text = build_right_text(self.item_count, self.vault_name);
-        render_right_section(buf, area, &right_text);
+        render_right_section(buf, area, self.search_query, self.item_count, self.vault_name);
     }
 }
 
