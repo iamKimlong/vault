@@ -124,8 +124,10 @@ impl App {
     fn go_back(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.view == View::Detail {
             self.view = View::List;
+            Ok(())
+        } else {
+            self.search_credentials("")
         }
-        self.search_credentials("")
     }
 
     fn toggle_password(&mut self) -> Result<(), Box<dyn std::error::Error>> {
