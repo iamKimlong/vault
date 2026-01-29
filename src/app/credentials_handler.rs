@@ -1,18 +1,22 @@
 use secrecy::ExposeSecret;
-
-use crate::crypto::totp::{self, TotpSecret};
-use crate::db::models::{Credential, CredentialType};
-use crate::db::AuditAction;
-use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, MessageType};
-use crate::ui::renderer::View;
-use crate::ui::components::ExportDialog;
-use crate::vault::credential::DecryptedCredential;
-use crate::vault::export::{
-    ExportData, ExportCredential,
-    export_to_file, credential_to_export,
-};
-use crate::crypto::decrypt_string;
 use std::path::Path;
+
+use crate::crypto::{totp::{self, TotpSecret}, decrypt_string};
+use crate::db::{models::{Credential, CredentialType}, AuditAction};
+use crate::ui::{
+    components::{
+        ExportDialog,
+        CredentialDetail,
+        CredentialForm,
+        CredentialItem,
+        MessageType
+    },
+    renderer::View
+};
+use crate::vault::{
+    credential::DecryptedCredential,
+    export::{ExportData, ExportCredential, export_to_file, credential_to_export}
+};
 
 use super::App;
 

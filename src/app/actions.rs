@@ -1,7 +1,6 @@
 use crate::db::AuditAction;
 use crate::input::keymap::{parse_command, Action};
-use crate::ui::components::MessageType;
-use crate::ui::renderer::View;
+use crate::ui::{components::MessageType, renderer::View};
 
 use super::config::PendingAction;
 use super::App;

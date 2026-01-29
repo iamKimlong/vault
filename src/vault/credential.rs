@@ -6,7 +6,7 @@
 //! master key directly.
 
 use chrono::{DateTime, Local};
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 
 use crate::crypto::{decrypt_string, encrypt_string, DataEncryptionKey};
 use crate::db::{self, Credential, CredentialType};

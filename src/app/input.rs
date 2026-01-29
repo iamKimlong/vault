@@ -1,13 +1,14 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
-use crate::input::keymap::{confirm_action, normal_mode_action, text_input_action, Action};
-use crate::input::modes::InputMode;
-use crate::ui::components::help::HelpScreen;
-use crate::ui::components::logs::LogsScreen;
-use crate::ui::components::tags::TagsPopup;
-use crate::ui::components::{CredentialForm, MessageType};
-use crate::ui::renderer::View;
-use crate::ui::components::export_dialog::ExportField;
+use crate::input::{
+    keymap::{confirm_action, normal_mode_action, text_input_action, Action},
+    modes::InputMode
+};
+use crate::ui::{
+    components::{help::HelpScreen, logs::LogsScreen, tags::TagsPopup},
+    components::{CredentialForm, MessageType, export_dialog::ExportField},
+    renderer::View,
+};
 
 use super::App;
 

@@ -189,7 +189,6 @@ pub fn parse_command(cmd: &str) -> Action {
     let cmd = cmd.trim();
     let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
     let command = parts[0];
-    let args = parts.get(1).copied();
 
     match command {
         "cls" | "clear" => Action::Clear,

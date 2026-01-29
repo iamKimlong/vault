@@ -10,20 +10,23 @@ mod input;
 
 use std::time::{Duration, Instant};
 
-use ratatui::layout::Rect;
-use ratatui::Frame;
+use ratatui::{layout::Rect, Frame};
 
 use crate::db::models::Credential;
 use crate::db::AuditAction;
 use crate::input::modes::ModeState;
-use crate::ui::components::{CredentialDetail, CredentialForm, CredentialItem, ExportDialog, ListViewState, MessageType};
 use crate::ui::components::help::HelpState;
 use crate::ui::components::logs::LogsState;
 use crate::ui::components::tags::TagsState;
+use crate::ui::components::{
+    CredentialDetail, CredentialForm, CredentialItem, 
+    ExportDialog, ListViewState, MessageType,
+};
 use crate::ui::renderer::{Renderer, UiState, View};
+use crate::vault::audit;
 use crate::vault::credential::DecryptedCredential;
 use crate::vault::manager::VaultState;
-use crate::vault::{audit, Vault};
+use crate::vault::Vault;
 
 pub use config::{AppConfig, PendingAction};
 
