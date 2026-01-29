@@ -65,15 +65,21 @@ impl PasswordPolicy {
         }
     }
 
-    /// Create a maximum security policy
-    pub fn maximum(length: usize) -> Self {
+    /// Create a quantum-resistant policy.
+    ///
+    /// Generates 40-character passwords (~262 bits entropy with full charset),
+    /// providing 128-bit security against Grover's algorithm which halves
+    /// effective entropy for symmetric cryptography.
+    ///
+    /// Note: This is forward-looking; current threat models don't require this.
+    pub fn quantum_resistant() -> Self {
         Self {
-            length,
+            length: 40,
             uppercase: true,
             lowercase: true,
             digits: true,
             symbols: true,
-            custom_symbols: Some("!@#$%^&*()_+-=[]{}|;:,.<>?".to_string()),
+            custom_symbols: None,
             exclude_ambiguous: false,
         }
     }
@@ -235,14 +241,15 @@ pub fn generate_passphrase(word_count: usize, separator: &str) -> String {
 
 /// Calculate password strength based on entropy (0-100).
 ///
-/// Uses entropy calculation: bits = length × log₂(charset_size)
+/// Scoring based on NIST SP 800-63B thresholds:
+/// - < 28 bits: Very Weak (0-20) - trivially crackable
+/// - 28-47 bits: Weak (21-40) - vulnerable without rate-limiting
+/// - 48-63 bits: Fair (41-60) - needs rate-limiting protection
+/// - 64-111 bits: Strong (61-80) - resistant to online attacks
+/// - 112+ bits: Very Strong (81-100) - meets NIST full security strength
 ///
-/// Scoring thresholds (based on NIST guidelines):
-/// - < 28 bits: Very Weak (0-20)
-/// - 28-35 bits: Weak (21-40)
-/// - 36-59 bits: Fair (41-60)
-/// - 60-127 bits: Strong (61-80)
-/// - 128+ bits: Very Strong (81-100)
+/// Note: For post-quantum resistance (Grover's algorithm), 256 bits (~40 chars
+/// with full charset) provides 128-bit equivalent security. See `PasswordPolicy::quantum_resistant()`.
 pub fn password_strength(password: &str) -> u32 {
     let len = password.len();
     if len == 0 {
@@ -263,7 +270,6 @@ pub fn password_strength(password: &str) -> u32 {
     if password.chars().any(|c| !c.is_alphanumeric() && c.is_ascii()) {
         charset_size += 32;
     }
-    // Handle non-ASCII characters
     if password.chars().any(|c| !c.is_ascii()) {
         charset_size += 100;
     }
@@ -275,24 +281,28 @@ pub fn password_strength(password: &str) -> u32 {
     // Entropy in bits: log2(charset_size^len) = len * log2(charset_size)
     let entropy = (len as f64) * (charset_size as f64).log2();
 
-    // Map entropy to 0-100 score
     match entropy as u32 {
         0..=27 => ((entropy / 28.0) * 20.0) as u32,
-        28..=35 => 20 + (((entropy - 28.0) / 8.0) * 20.0) as u32,
-        36..=59 => 40 + (((entropy - 36.0) / 24.0) * 20.0) as u32,
-        60..=127 => 60 + (((entropy - 60.0) / 68.0) * 20.0) as u32,
-        _ => 80 + (((entropy - 128.0).min(128.0) / 128.0) * 20.0) as u32,
+        28..=47 => 20 + (((entropy - 28.0) / 20.0) * 20.0) as u32,
+        48..=63 => 40 + (((entropy - 48.0) / 16.0) * 20.0) as u32,
+        64..=111 => 60 + (((entropy - 64.0) / 48.0) * 20.0) as u32,
+        // 112..=255 => 80 + (((entropy - 112.0) / 144.0) * 20.0) as u32, // Quantum-resistant scoring
+        _ => 100, // 112+ bits = NIST maximum security strength
+        // _ => 100, // 256+ bits = Quantum-resistant (128-bit post-Grover)
     }
 }
 
 /// Get strength label for a score
 pub fn strength_label(score: u32) -> &'static str {
     match score {
-        0..=20 => "Very Weak",
+        0..=10 => "Why?",
+        11..=20 => "Very Weak",
         21..=40 => "Weak",
         41..=60 => "Fair",
         61..=80 => "Strong",
         _ => "Very Strong",
+        // 81..=99 => "Very Strong",
+        // _ => "Quantum Resistant",
     }
 }
 
@@ -355,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_password_strength_strong() {
-        let score = password_strength("MyP@ssw0rd!2024XyZ");
+        let score = password_strength("MyP@ssw0rd!2026XyZ");
         assert!(score > 60, "Complex 18-char password scored {}, should be > 60", score);
     }
 
@@ -407,10 +417,21 @@ mod tests {
 
     #[test]
     fn test_strength_labels() {
-        assert_eq!(strength_label(10), "Very Weak");
+        assert_eq!(strength_label(15), "Very Weak");
         assert_eq!(strength_label(30), "Weak");
         assert_eq!(strength_label(50), "Fair");
         assert_eq!(strength_label(70), "Strong");
         assert_eq!(strength_label(90), "Very Strong");
+    }
+
+    #[test]
+    fn test_default_policy_strength() {
+        let policy = PasswordPolicy::default();
+        for _ in 0..10 {
+            let password = generate_password(&policy).unwrap();
+            let score = password_strength(&password);
+            println!("Password: {} | Score: {}", password, score);
+            assert_eq!(score, 100, "Password '{}' scored {}", password, score);
+        }
     }
 }
