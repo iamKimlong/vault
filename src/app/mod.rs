@@ -41,9 +41,11 @@ pub struct App {
     pub credential_items: Vec<CredentialItem>,
     pub selected_credential: Option<DecryptedCredential>,
     pub selected_detail: Option<CredentialDetail>,
+    pub search_query: Option<String>,
     pub message: Option<(String, MessageType, Instant)>,
     pub pending_action: Option<PendingAction>,
     pub password_visible: bool,
+    pub password_hide_at: Option<Instant>,
     pub should_quit: bool,
     pub credential_form: Option<CredentialForm>,
     pub wants_password_change: bool,
@@ -68,9 +70,11 @@ impl App {
             credential_items: Vec::new(),
             selected_credential: None,
             selected_detail: None,
+            search_query: None,
             message: None,
             pending_action: None,
             password_visible: false,
+            password_hide_at: None,
             should_quit: false,
             credential_form: None,
             wants_password_change: false,
@@ -183,6 +187,7 @@ impl App {
             credentials: &self.credential_items,
             list_state: &mut self.list_state,
             selected_detail: self.selected_detail.as_ref(),
+            search_query: self.search_query.as_deref(),
             command_buffer,
             message,
             confirm_message,
@@ -210,5 +215,15 @@ impl App {
 
     pub fn set_message(&mut self, msg: &str, msg_type: MessageType) {
         self.message = Some((msg.to_string(), msg_type, Instant::now()));
+    }
+
+    pub fn check_password_timeout(&mut self) {
+        if let Some(hide_at) = self.password_hide_at {
+            if Instant::now() >= hide_at {
+                self.password_visible = false;
+                self.password_hide_at = None;
+                let _ = self.update_selected_detail();
+            }
+        }
     }
 }

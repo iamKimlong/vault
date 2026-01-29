@@ -5,6 +5,7 @@ pub struct AppConfig {
     pub vault_path: PathBuf,
     pub auto_lock_timeout: Duration,
     pub clipboard_timeout: Duration,
+    pub password_visibility_timeout: Duration,
 }
 
 impl Default for AppConfig {
@@ -18,6 +19,7 @@ impl Default for AppConfig {
             vault_path,
             auto_lock_timeout: Duration::from_secs(300),
             clipboard_timeout: Duration::from_secs(15),
+            password_visibility_timeout: Duration::from_secs(5),
         }
     }
 }

@@ -475,6 +475,7 @@ fn app_iteration(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std
         return Ok(true);
     }
 
+    app.check_password_timeout();
     check_auto_lock(terminal, app)?;
     Ok(false)
 }

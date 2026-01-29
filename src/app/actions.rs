@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::db::AuditAction;
 use crate::input::keymap::{parse_command, Action};
 use crate::ui::{components::MessageType, renderer::View};
@@ -131,9 +133,16 @@ impl App {
     }
 
     fn toggle_password(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.password_visible = !self.password_visible;
+        if self.password_visible {
+            self.password_visible = false;
+            self.password_hide_at = None;
+        } else {
+            self.password_visible = true;
+            self.password_hide_at = Some(Instant::now() + self.config.password_visibility_timeout);
+        }
+        
         self.update_selected_detail()?;
-
+        
         if let Some(cred) = &self.selected_credential {
             let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
             self.log_audit(AuditAction::Read, Some(&id), Some(&name), username.as_deref(), Some("Toggle Password Visibility"))?;
