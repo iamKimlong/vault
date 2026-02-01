@@ -122,6 +122,7 @@ impl App {
             cred.secret.as_ref().map(|s| s.expose_secret().to_string()).unwrap_or_default(),
             cred.url.clone(),
             cred.tags.clone(),
+            cred.totp_secret.as_ref().map(|s| s.expose_secret().to_string()),
             cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
             self.view.clone(),
         );
@@ -167,6 +168,7 @@ impl App {
             &mut cred,
             Some(form.get_secret()),
             form.get_notes().as_deref(),
+            form.get_totp_secret().as_deref(),
         )?;
 
         self.log_audit(AuditAction::Update, Some(id), Some(&cred.name), cred.username.as_deref(), None)?;
@@ -188,6 +190,7 @@ impl App {
             form.get_url(),
             form.get_tags(),
             form.get_notes().as_deref(),
+            form.get_totp_secret().as_deref(),
         )?;
 
         self.log_audit(AuditAction::Create, Some(&cred.id), Some(&cred.name), cred.username.as_deref(), None)?;
@@ -237,19 +240,72 @@ impl App {
 
     pub fn copy_totp(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let Some(cred) = &self.selected_credential else { return Ok(()) };
-        if cred.credential_type != CredentialType::Totp {
+        let Some(totp_input) = &cred.totp_secret else {
+            self.set_message("No TOTP secret configured", MessageType::Error);
             return Ok(());
-        }
-        let Some(secret_str) = &cred.secret else { return Ok(()) };
+        };
 
-        let totp_secret = parse_totp_secret(secret_str.expose_secret(), &cred.name);
-        let code = totp::generate_totp(&totp_secret)?;
+        let totp_secret = match TotpSecret::from_user_input(
+            totp_input.expose_secret(),
+            &cred.name,
+            "Vault"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                self.set_message(&format!("TOTP error: {}", e), MessageType::Error);
+                return Ok(());
+            }
+        };
+        
+        let code = match totp::generate_totp(&totp_secret) {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_message(&format!("TOTP generation failed: {}", e), MessageType::Error);
+                return Ok(());
+            }
+        };
+        
         let remaining = totp::time_remaining(&totp_secret);
         let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
 
         super::clipboard::copy_with_timeout(&code, self.config.clipboard_timeout);
         self.log_audit(AuditAction::Copy, Some(&id), Some(&name), username.as_deref(), Some("TOTP"))?;
         self.set_message(&format!("TOTP: {} ({}s remaining)", code, remaining), MessageType::Success);
+        Ok(())
+    }
+
+    pub fn copy_totp_uri(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let Some(cred) = &self.selected_credential else { return Ok(()) };
+        let Some(totp_input) = &cred.totp_secret else {
+            self.set_message("No TOTP secret configured", MessageType::Error);
+            return Ok(());
+        };
+
+        let totp_secret = match TotpSecret::from_user_input(
+            totp_input.expose_secret(),
+            &cred.name,
+            "Vault"
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                self.set_message(&format!("TOTP error: {}", e), MessageType::Error);
+                return Ok(());
+            }
+        };
+        
+        let uri = match totp_secret.to_uri() {
+            Ok(u) => u,
+            Err(e) => {
+                self.set_message(&format!("Failed to generate URI: {}", e), MessageType::Error);
+                return Ok(());
+            }
+        };
+
+        let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
+
+        super::clipboard::copy_with_timeout(&uri, self.config.clipboard_timeout);
+        self.log_audit(AuditAction::Copy, Some(&id), Some(&name), username.as_deref(), Some("TOTP URI"))?;
+        self.set_message(&format!("TOTP URI copied ({}s)", self.config.clipboard_timeout.as_secs()), MessageType::Success);
         Ok(())
     }
 
@@ -376,20 +432,24 @@ pub fn build_detail(cred: &DecryptedCredential, password_visible: bool) -> Crede
     }
 }
 
-fn compute_totp(cred: &DecryptedCredential) -> (Option<String>, Option<u64>) {
-    if cred.credential_type != CredentialType::Totp {
-        return (None, None);
-    }
-    let Some(ref secret_str) = cred.secret else {
+pub fn compute_totp(cred: &DecryptedCredential) -> (Option<String>, Option<u64>) {
+    let Some(ref totp_input) = cred.totp_secret else {
         return (None, None);
     };
 
-    let totp_secret = parse_totp_secret(secret_str.expose_secret(), &cred.name);
+    let totp_secret = match TotpSecret::from_user_input(
+        totp_input.expose_secret(),
+        &cred.name,
+        "Vault"
+    ) {
+        Ok(s) => s,
+        Err(_) => return (None, None),
+    };
 
-    totp::generate_totp(&totp_secret)
-        .ok()
-        .map(|code| (Some(code), Some(totp::time_remaining(&totp_secret))))
-        .unwrap_or((None, None))
+    match totp::generate_totp(&totp_secret) {
+        Ok(code) => (Some(code), Some(totp::time_remaining(&totp_secret))),
+        Err(_) => (None, None),
+    }
 }
 
 fn parse_totp_secret(secret: &str, name: &str) -> TotpSecret {

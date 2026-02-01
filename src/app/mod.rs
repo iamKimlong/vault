@@ -46,6 +46,7 @@ pub struct App {
     pub pending_action: Option<PendingAction>,
     pub password_visible: bool,
     pub password_hide_at: Option<Instant>,
+    pub last_totp_tick: Instant,
     pub should_quit: bool,
     pub credential_form: Option<CredentialForm>,
     pub wants_password_change: bool,
@@ -75,6 +76,7 @@ impl App {
             pending_action: None,
             password_visible: false,
             password_hide_at: None,
+            last_totp_tick: Instant::now(),
             should_quit: false,
             credential_form: None,
             wants_password_change: false,
@@ -229,5 +231,30 @@ impl App {
 
     pub fn should_auto_lock(&self) -> bool {
         self.vault.is_unlocked() && self.vault.time_since_activity() > self.config.auto_lock_timeout
+    }
+
+    pub fn tick_totp(&mut self) {
+        // Only refresh once per second
+        if self.last_totp_tick.elapsed() < Duration::from_secs(1) {
+            return;
+        }
+        self.last_totp_tick = Instant::now();
+        self.refresh_totp_display();
+    }
+
+    pub fn refresh_totp_display(&mut self) {
+        if self.view != View::Detail {
+            return;
+        }
+        
+        let Some(ref cred) = self.selected_credential else { return };
+        if cred.totp_secret.is_none() { return; }
+        
+        // Only update TOTP fields in the existing detail
+        if let Some(ref mut detail) = self.selected_detail {
+            let (code, remaining) = credentials_handler::compute_totp(cred);
+            detail.totp_code = code;
+            detail.totp_remaining = remaining;
+        }
     }
 }

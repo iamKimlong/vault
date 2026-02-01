@@ -30,6 +30,7 @@ pub enum Action {
     CopyPassword,
     CopyUsername,
     CopyTotp,
+    CopyTotpUri,
 
     // View
     TogglePasswordVisibility,
@@ -126,6 +127,7 @@ pub fn normal_mode_action(key: KeyEvent, pending: Option<char>) -> (Action, Opti
         (KeyCode::Char('c'), KeyModifiers::NONE, Some('y')) => (Action::CopyPassword, None),
         (KeyCode::Char('u'), KeyModifiers::NONE, None) => (Action::CopyUsername, None),
         (KeyCode::Char('T'), KeyModifiers::SHIFT, _) => (Action::CopyTotp, None),
+        (KeyCode::Char('t'), KeyModifiers::CONTROL, _) => (Action::CopyTotpUri, None),
 
         // View
         (KeyCode::Char('s'), KeyModifiers::CONTROL, _) => (Action::TogglePasswordVisibility, None),

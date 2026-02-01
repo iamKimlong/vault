@@ -7,11 +7,10 @@ use rusqlite::Connection;
 use super::DbResult;
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 2;
+pub const SCHEMA_VERSION: i32 = 3;
 
 /// Initialize the database schema
 pub fn init_schema(conn: &Connection) -> DbResult<()> {
-    // Check if schema exists
     let has_schema: bool = conn
         .query_row(
             "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='metadata'",
@@ -22,8 +21,33 @@ pub fn init_schema(conn: &Connection) -> DbResult<()> {
 
     if !has_schema {
         create_schema(conn)?;
+    } else {
+        migrate_schema(conn)?;
     }
 
+    Ok(())
+}
+
+fn migrate_schema(conn: &Connection) -> DbResult<()> {
+    let version = get_schema_version(conn).unwrap_or(0);
+    
+    if version < 3 {
+        // Add TOTP column if it doesn't exist
+        let has_totp_column: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('credentials') WHERE name='encrypted_totp_secret'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        
+        if !has_totp_column {
+            conn.execute("ALTER TABLE credentials ADD COLUMN encrypted_totp_secret TEXT", [])?;
+        }
+        
+        conn.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('schema_version', '3')", [])?;
+    }
+    
     Ok(())
 }
 
@@ -45,6 +69,7 @@ fn create_schema(conn: &Connection) -> DbResult<()> {
             username TEXT,
             encrypted_secret TEXT NOT NULL,
             encrypted_notes TEXT,
+            encrypted_totp_secret TEXT,
             url TEXT,
             tags TEXT NOT NULL DEFAULT '[]',
             created_at TEXT NOT NULL,
@@ -98,7 +123,7 @@ fn create_schema(conn: &Connection) -> DbResult<()> {
         CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);
 
         -- Store schema version
-        INSERT OR REPLACE INTO metadata (key, value) VALUES ('schema_version', '2');
+        INSERT OR REPLACE INTO metadata (key, value) VALUES ('schema_version', '3');
         "#,
     )?;
 

@@ -43,7 +43,7 @@ impl FormField {
         }
     }
 
-    pub fn password(label: &'static str, required: bool) -> Self {
+    pub fn secret(label: &'static str, required: bool) -> Self {
         Self {
             label,
             value: String::new(),
@@ -102,9 +102,10 @@ fn default_fields() -> Vec<FormField> {
         FormField::text("Name", true),
         FormField::select("Type").with_value(CredentialType::Password.display_name()),
         FormField::text("Username", false),
-        FormField::password("Password/Secret", true),
+        FormField::secret("Password/Secret", true),
         FormField::text("URL", false),
         FormField::text("Tags (multiple)", false),
+        FormField::secret("TOTP Secret", false),
         FormField::multiline("Notes"),
     ]
 }
@@ -114,8 +115,7 @@ fn cycle_type_forward(cred_type: CredentialType) -> CredentialType {
         CredentialType::Password => CredentialType::ApiKey,
         CredentialType::ApiKey => CredentialType::SshKey,
         CredentialType::SshKey => CredentialType::Certificate,
-        CredentialType::Certificate => CredentialType::Totp,
-        CredentialType::Totp => CredentialType::Note,
+        CredentialType::Certificate => CredentialType::Note,
         CredentialType::Note => CredentialType::Database,
         CredentialType::Database => CredentialType::Custom,
         CredentialType::Custom => CredentialType::Password,
@@ -128,8 +128,7 @@ fn cycle_type_backward(cred_type: CredentialType) -> CredentialType {
         CredentialType::ApiKey => CredentialType::Password,
         CredentialType::SshKey => CredentialType::ApiKey,
         CredentialType::Certificate => CredentialType::SshKey,
-        CredentialType::Totp => CredentialType::Certificate,
-        CredentialType::Note => CredentialType::Totp,
+        CredentialType::Note => CredentialType::Certificate,
         CredentialType::Database => CredentialType::Note,
         CredentialType::Custom => CredentialType::Database,
     }
@@ -166,6 +165,7 @@ impl CredentialForm {
         secret: String,
         url: Option<String>,
         tags: Vec<String>,
+        totp_secret: Option<String>,
         notes: Option<String>,
         previous_view: View,
     ) -> Self {
@@ -180,7 +180,8 @@ impl CredentialForm {
         form.fields[3].value = secret;
         form.fields[4].value = url.unwrap_or_default();
         form.fields[5].value = tags.join(" ");
-        form.fields[6].value = notes.unwrap_or_default();
+        form.fields[6].value = totp_secret.unwrap_or_default();
+        form.fields[7].value = notes.unwrap_or_default();
 
         form
     }
@@ -302,8 +303,12 @@ impl CredentialForm {
             .collect()
     }
 
-    pub fn get_notes(&self) -> Option<String> {
+    pub fn get_totp_secret(&self) -> Option<String> {
         trim_to_option(&self.fields[6].value)
+    }
+
+    pub fn get_notes(&self) -> Option<String> {
+        trim_to_option(&self.fields[7].value)
     }
 }
 

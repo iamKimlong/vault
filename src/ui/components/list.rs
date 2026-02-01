@@ -161,7 +161,6 @@ fn type_color(cred_type: CredentialType) -> Color {
         CredentialType::ApiKey => Color::Yellow,
         CredentialType::SshKey => Color::Cyan,
         CredentialType::Certificate => Color::Magenta,
-        CredentialType::Totp => Color::Blue,
         CredentialType::Note => Color::Gray,
         CredentialType::Database => Color::Red,
         CredentialType::Custom => Color::White,

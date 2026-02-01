@@ -20,8 +20,8 @@ pub fn create_credential(conn: &Connection, credential: &Credential) -> DbResult
 
     conn.execute(
         r#"
-        INSERT INTO credentials (id, name, credential_type, username, encrypted_secret, encrypted_notes, url, tags, created_at, updated_at, accessed_at)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+        INSERT INTO credentials (id, name, credential_type, username, encrypted_secret, encrypted_notes, encrypted_totp_secret, url, tags, created_at, updated_at, accessed_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
         "#,
         params![
             credential.id,
@@ -30,7 +30,7 @@ pub fn create_credential(conn: &Connection, credential: &Credential) -> DbResult
             credential.username,
             credential.encrypted_secret,
             credential.encrypted_notes,
-            credential.url,
+            credential.encrypted_totp_secret,
             tags_json,
             credential.created_at.to_rfc3339(),
             credential.updated_at.to_rfc3339(),
@@ -45,7 +45,7 @@ pub fn create_credential(conn: &Connection, credential: &Credential) -> DbResult
 pub fn get_credential(conn: &Connection, id: &str) -> DbResult<Credential> {
     conn.query_row(
         r#"
-        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, url, tags, created_at, updated_at, accessed_at
+        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, encrypted_totp_secret, url, tags, created_at, updated_at, accessed_at
         FROM credentials
         WHERE id = ?1
         "#,
@@ -62,7 +62,7 @@ pub fn get_credential(conn: &Connection, id: &str) -> DbResult<Credential> {
 pub fn get_all_credentials(conn: &Connection) -> DbResult<Vec<Credential>> {
     let mut stmt = conn.prepare(
         r#"
-        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, url, tags, created_at, updated_at, accessed_at
+        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, encrypted_totp_secret, url, tags, created_at, updated_at, accessed_at
         FROM credentials
         ORDER BY name
         "#,
@@ -91,7 +91,7 @@ pub fn get_credentials_by_tag(conn: &Connection, tags: &[String]) -> DbResult<Ve
     
     let query = format!(
         r#"
-        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, url, tags, created_at, updated_at, accessed_at
+        SELECT id, name, credential_type, username, encrypted_secret, encrypted_notes, encrypted_totp_secret, url, tags, created_at, updated_at, accessed_at
         FROM credentials
         WHERE {}
         ORDER BY name
@@ -148,7 +148,7 @@ pub fn search_credentials(conn: &Connection, query: &str) -> DbResult<Vec<Creden
 
     let mut stmt = conn.prepare(
         r#"
-        SELECT c.id, c.name, c.credential_type, c.username, c.encrypted_secret, c.encrypted_notes, c.url, c.tags, c.created_at, c.updated_at, c.accessed_at
+        SELECT c.id, c.name, c.credential_type, c.username, c.encrypted_secret, c.encrypted_notes, c.encrypted_totp_secret, c.url, c.tags, c.created_at, c.updated_at, c.accessed_at
         FROM credentials c
         INNER JOIN credentials_fts fts ON c.rowid = fts.rowid
         WHERE credentials_fts MATCH ?1
@@ -171,7 +171,7 @@ pub fn update_credential(conn: &Connection, credential: &Credential) -> DbResult
     let rows = conn.execute(
         r#"
         UPDATE credentials
-        SET name = ?2, credential_type = ?3, username = ?4, encrypted_secret = ?5, encrypted_notes = ?6, url = ?7, tags = ?8, updated_at = ?9
+        SET name = ?2, credential_type = ?3, username = ?4, encrypted_secret = ?5, encrypted_notes = ?6, encrypted_totp_secret = ?7, url = ?8, tags = ?9, updated_at = ?10
         WHERE id = ?1
         "#,
         params![
@@ -181,6 +181,7 @@ pub fn update_credential(conn: &Connection, credential: &Credential) -> DbResult
             credential.username,
             credential.encrypted_secret,
             credential.encrypted_notes,
+            credential.encrypted_totp_secret,
             credential.url,
             tags_json,
             Local::now().to_rfc3339(),
@@ -215,10 +216,10 @@ pub fn delete_credential(conn: &Connection, id: &str) -> DbResult<()> {
 }
 
 fn row_to_credential(row: &Row) -> rusqlite::Result<Credential> {
-    let tags_json: String = row.get(7)?;
+    let tags_json: String = row.get(8)?;
     let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
 
-    let accessed_at: Option<String> = row.get(10)?;
+    let accessed_at: Option<String> = row.get(11)?;
 
     Ok(Credential {
         id: row.get(0)?,
@@ -227,10 +228,11 @@ fn row_to_credential(row: &Row) -> rusqlite::Result<Credential> {
         username: row.get(3)?,
         encrypted_secret: row.get(4)?,
         encrypted_notes: row.get(5)?,
-        url: row.get(6)?,
+        encrypted_totp_secret: row.get(6)?,
+        url: row.get(7)?,
         tags,
-        created_at: parse_datetime(row.get::<_, String>(8)?),
-        updated_at: parse_datetime(row.get::<_, String>(9)?),
+        created_at: parse_datetime(row.get::<_, String>(9)?),
+        updated_at: parse_datetime(row.get::<_, String>(10)?),
         accessed_at: accessed_at.map(parse_datetime),
     })
 }

@@ -21,6 +21,7 @@ pub struct DecryptedCredential {
     pub username: Option<String>,
     pub secret: Option<SecretString>,
     pub notes: Option<SecretString>,
+    pub totp_secret: Option<SecretString>,
     pub url: Option<String>,
     pub tags: Vec<String>,
     pub created_at: DateTime<Local>,
@@ -32,6 +33,7 @@ impl DecryptedCredential {
         cred: &Credential,
         secret: Option<String>,
         notes: Option<String>,
+        totp_secret: Option<String>,
     ) -> Self {
         Self {
             id: cred.id.clone(),
@@ -40,6 +42,7 @@ impl DecryptedCredential {
             username: cred.username.clone(),
             secret: secret.map(SecretString::from),
             notes: notes.map(SecretString::from),
+            totp_secret: totp_secret.map(SecretString::from),
             url: cred.url.clone(),
             tags: cred.tags.clone(),
             created_at: cred.created_at,
@@ -74,6 +77,27 @@ fn decrypt_notes(dek: &DataEncryptionKey, encrypted: Option<&String>) -> VaultRe
     Ok(Some(decrypted))
 }
 
+fn decrypt_totp_secret(dek: &DataEncryptionKey, encrypted: Option<&String>) -> VaultResult<Option<String>> {
+    let Some(t) = encrypted else {
+        return Ok(None);
+    };
+    let decrypted = decrypt_string(dek.as_ref(), t)
+        .map_err(|e| VaultError::CryptoError(e.to_string()))?;
+    Ok(Some(decrypted))
+}
+
+fn encrypt_totp_secret(dek: &DataEncryptionKey, totp: Option<&str>) -> VaultResult<Option<String>> {
+    let Some(t) = totp else {
+        return Ok(None);
+    };
+    if t.is_empty() {
+        return Ok(None);
+    }
+    let encrypted = encrypt_string(dek.as_ref(), t)
+        .map_err(|e| VaultError::CryptoError(e.to_string()))?;
+    Ok(Some(encrypted))
+}
+
 fn encrypt_notes_for_update(dek: &DataEncryptionKey, notes: Option<&str>) -> VaultResult<Option<String>> {
     let Some(n) = notes else {
         return Ok(None);
@@ -96,15 +120,18 @@ pub fn create_credential(
     url: Option<String>,
     tags: Vec<String>,
     notes: Option<&str>,
+    totp_secret: Option<&str>,
 ) -> VaultResult<Credential> {
     let encrypted_secret = encrypt_secret(dek, secret)?;
     let encrypted_notes = encrypt_notes(dek, notes)?;
+    let encrypted_totp = encrypt_totp_secret(dek, totp_secret)?;
 
     let mut cred = Credential::new(name, credential_type, encrypted_secret);
     cred.username = username;
     cred.url = url;
     cred.tags = tags;
     cred.encrypted_notes = encrypted_notes;
+    cred.encrypted_totp_secret = encrypted_totp;
 
     db::create_credential(conn, &cred)?;
     Ok(cred)
@@ -122,12 +149,13 @@ pub fn decrypt_credential(
 ) -> VaultResult<DecryptedCredential> {
     let secret = decrypt_secret(dek, &cred.encrypted_secret)?;
     let notes = decrypt_notes(dek, cred.encrypted_notes.as_ref())?;
+    let totp_secret = decrypt_totp_secret(dek, cred.encrypted_totp_secret.as_ref())?;
 
     if log_access {
         db::touch_credential(conn, &cred.id)?;
     }
 
-    Ok(DecryptedCredential::from_credential(cred, Some(secret), notes))
+    Ok(DecryptedCredential::from_credential(cred, Some(secret), notes, totp_secret))
 }
 
 pub fn update_credential(
@@ -136,12 +164,14 @@ pub fn update_credential(
     cred: &mut Credential,
     new_secret: Option<&str>,
     new_notes: Option<&str>,
+    new_totp_secret: Option<&str>,
 ) -> VaultResult<()> {
     if let Some(secret) = new_secret {
         cred.encrypted_secret = encrypt_secret(dek, secret)?;
     }
 
     cred.encrypted_notes = encrypt_notes_for_update(dek, new_notes)?;
+    cred.encrypted_totp_secret = encrypt_totp_secret(dek, new_totp_secret)?;
     db::update_credential(conn, cred)?;
     Ok(())
 }

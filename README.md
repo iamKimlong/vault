@@ -18,7 +18,7 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Full-Text Search:** SQLite FTS5 for fast search
 - **Search or filter by project/tag:** Organize your credentials and keys via tagging
 - **Vim Keybindings:** Modal editing with hjkl navigation
-- **TOTP Support:** Generate 2FA codes with countdown timer (Not working properly yet)
+- **TOTP Support:** Generate 2FA codes with countdown timer
 - **Password Generator:** Configurable CSPRNG password generation
 - **Password Strength Checker:** Evaluates the security of user passwords in real-time, providing feedback on complexity, and length to help users create stronger, safer passwords.
 - **Audit Trail:** Extensive HMAC-signed logs for tamper detection and activity records

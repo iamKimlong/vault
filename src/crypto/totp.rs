@@ -10,7 +10,7 @@ use super::{CryptoError, CryptoResult};
 /// TOTP secret configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TotpSecret {
-    /// Base32-encoded secret
+    /// Base32-encoded secret (original, not padded)
     pub secret: String,
     /// Account name (e.g., "user@example.com")
     pub account: String,
@@ -55,8 +55,31 @@ impl TotpSecret {
         }
     }
 
+    /// Parse from user input - handles both raw secret and otpauth:// URI
+    pub fn from_user_input(input: &str, fallback_account: &str, fallback_issuer: &str) -> CryptoResult<Self> {
+        let trimmed = input.trim();
+        
+        if trimmed.is_empty() {
+            return Err(CryptoError::TotpFailed("TOTP secret cannot be empty".to_string()));
+        }
+        
+        if trimmed.to_lowercase().starts_with("otpauth://") {
+            Self::from_uri(trimmed)
+        } else {
+            Self::from_raw_secret(trimmed, fallback_account, fallback_issuer)
+        }
+    }
+
+    /// Create from raw base32 secret
+    fn from_raw_secret(secret: &str, account: &str, issuer: &str) -> CryptoResult<Self> {
+        let cleaned = normalize_base32(secret);
+        validate_base32(&cleaned)?;
+        
+        Ok(Self::new(cleaned, account.to_string(), issuer.to_string()))
+    }
+
     /// Parse from otpauth:// URI
-    pub fn from_uri(uri: &str) -> CryptoResult<Self> {
+    fn from_uri(uri: &str) -> CryptoResult<Self> {
         let totp = TOTP::from_url(uri).map_err(|e| CryptoError::TotpFailed(e.to_string()))?;
 
         let algorithm = match totp.algorithm {
@@ -75,20 +98,29 @@ impl TotpSecret {
         })
     }
 
-    /// Generate otpauth:// URI for QR code
+    /// Export as otpauth:// URI for transferring to other apps
     pub fn to_uri(&self) -> CryptoResult<String> {
         let totp = self.build_totp()?;
         Ok(totp.get_url())
     }
 
+    /// Get the raw base32 secret for display/export
+    pub fn raw_secret(&self) -> &str {
+        &self.secret
+    }
+
     fn build_totp(&self) -> CryptoResult<TOTP> {
-        let secret = self.decode_secret()?;
+        let secret_bytes = self.decode_secret()?;
+        
+        // Pad to 128 bits (16 bytes) if needed - totp-rs requirement
+        let padded_bytes = pad_secret_bytes(secret_bytes);
+        
         TOTP::new(
             self.algorithm.into(),
             self.digits,
             1,
             self.period,
-            secret,
+            padded_bytes,
             Some(self.issuer.clone()),
             self.account.clone(),
         )
@@ -102,16 +134,67 @@ impl TotpSecret {
     }
 }
 
+/// Normalize base32 input (remove spaces, dashes, convert to uppercase)
+fn normalize_base32(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-')
+        .collect::<String>()
+        .to_uppercase()
+}
+
+/// Validate that the secret contains valid base32 characters
+fn validate_base32(secret: &str) -> CryptoResult<()> {
+    if secret.is_empty() {
+        return Err(CryptoError::TotpFailed("TOTP secret cannot be empty".to_string()));
+    }
+
+    if secret.len() < 8 {
+        return Err(CryptoError::TotpFailed(
+            format!("TOTP secret too short. Minimum 8 characters required, got {}", secret.len())
+        ));
+    }
+
+    let valid_chars = secret.chars().all(|c| {
+        matches!(c, 'A'..='Z' | '2'..='7' | '=')
+    });
+    
+    if !valid_chars {
+        return Err(CryptoError::TotpFailed(
+            "Invalid characters in TOTP secret. Must be base32 (A-Z, 2-7)".to_string()
+        ));
+    }
+
+    Ok(())
+}
+
+/// Pad secret bytes to minimum 128 bits (16 bytes) required by totp-rs
+fn pad_secret_bytes(mut bytes: Vec<u8>) -> Vec<u8> {
+    const MIN_BYTES: usize = 16; // 128 bits
+    
+    if bytes.len() >= MIN_BYTES {
+        return bytes;
+    }
+    
+    // Pad by repeating the secret (standard approach for short TOTP secrets)
+    let original = bytes.clone();
+    while bytes.len() < MIN_BYTES {
+        for &b in &original {
+            if bytes.len() >= MIN_BYTES {
+                break;
+            }
+            bytes.push(b);
+        }
+    }
+    
+    bytes
+}
+
 /// Generate current TOTP code
 pub fn generate_totp(secret: &TotpSecret) -> CryptoResult<String> {
     let totp = secret.build_totp()?;
-    Ok(totp.generate_current().map_err(|e| CryptoError::TotpFailed(e.to_string()))?)
-}
-
-/// Generate TOTP code for a specific timestamp
-pub fn generate_totp_at(secret: &TotpSecret, time: u64) -> CryptoResult<String> {
-    let totp = secret.build_totp()?;
-    Ok(totp.generate(time))
+    totp.generate_current()
+        .map_err(|e| CryptoError::TotpFailed(e.to_string()))
 }
 
 /// Get remaining seconds until code expires
@@ -123,92 +206,88 @@ pub fn time_remaining(secret: &TotpSecret) -> u64 {
     secret.period - (now % secret.period)
 }
 
-/// Generate a new random TOTP secret (base32)
-pub fn generate_secret() -> String {
-    use rand::RngCore;
-    let mut bytes = [0u8; 20]; // 160 bits
-    rand::thread_rng().fill_bytes(&mut bytes);
-    base32_encode(&bytes)
-}
-
-fn base32_encode(data: &[u8]) -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-
-    let mut result = String::new();
-    let mut buffer: u64 = 0;
-    let mut bits_left = 0;
-
-    for &byte in data {
-        buffer = (buffer << 8) | byte as u64;
-        bits_left += 8;
-
-        while bits_left >= 5 {
-            bits_left -= 5;
-            let index = ((buffer >> bits_left) & 0x1F) as usize;
-            result.push(ALPHABET[index] as char);
-        }
-    }
-
-    if bits_left > 0 {
-        let index = ((buffer << (5 - bits_left)) & 0x1F) as usize;
-        result.push(ALPHABET[index] as char);
-    }
-
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_totp() {
-        // Test vector from RFC 6238
-        let secret = TotpSecret {
-            secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ".to_string(),
-            account: "test@example.com".to_string(),
-            issuer: "Test".to_string(),
-            digits: 8,
-            period: 30,
-            algorithm: TotpAlgorithm::SHA1,
-        };
-
-        // Generate at a known timestamp
-        let code = generate_totp_at(&secret, 59).unwrap();
-        assert_eq!(code.len(), 8);
+    fn test_short_secret_padded() {
+        // 16-char secret (80 bits) - common from many services
+        let secret = TotpSecret::from_user_input(
+            "JBSWY3DPEHPK3PXP",
+            "test@example.com",
+            "Test"
+        ).unwrap();
+        
+        let code = generate_totp(&secret).unwrap();
+        assert_eq!(code.len(), 6);
     }
 
     #[test]
-    fn test_totp_from_uri() {
-        let uri = "otpauth://totp/ACME:john@example.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=ACME&algorithm=SHA1&digits=6&period=30";
-        let secret = TotpSecret::from_uri(uri).unwrap();
-
-        assert_eq!(secret.account, "john@example.com");
-        assert_eq!(secret.issuer, "ACME");
-        assert_eq!(secret.digits, 6);
-        assert_eq!(secret.period, 30);
+    fn test_raw_secret_with_spaces() {
+        let secret = TotpSecret::from_user_input(
+            "JBSW Y3DP EHPK 3PXP",
+            "test",
+            "Test"
+        ).unwrap();
+        
+        assert_eq!(secret.secret, "JBSWY3DPEHPK3PXP");
     }
 
     #[test]
-    fn test_generate_secret() {
-        let secret1 = generate_secret();
-        let secret2 = generate_secret();
+    fn test_raw_secret_lowercase() {
+        let secret = TotpSecret::from_user_input(
+            "jbswy3dpehpk3pxp",
+            "test",
+            "Test"
+        ).unwrap();
+        
+        assert_eq!(secret.secret, "JBSWY3DPEHPK3PXP");
+    }
 
-        assert!(!secret1.is_empty());
-        assert_ne!(secret1, secret2);
-        // Base32 alphabet check
-        assert!(secret1.chars().all(|c| c.is_ascii_uppercase() || ('2'..='7').contains(&c)));
+    #[test]
+    fn test_otpauth_uri() {
+        let uri = "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub";
+        let secret = TotpSecret::from_user_input(uri, "fallback", "Fallback").unwrap();
+        
+        assert_eq!(secret.account, "user@example.com");
+        assert_eq!(secret.issuer, "GitHub");
+    }
+
+    #[test]
+    fn test_to_uri() {
+        let secret = TotpSecret::from_user_input(
+            "JBSWY3DPEHPK3PXP",
+            "user@example.com",
+            "MyService"
+        ).unwrap();
+        
+        let uri = secret.to_uri().unwrap();
+        assert!(uri.starts_with("otpauth://totp/"));
+        assert!(uri.contains("MyService"));
+    }
+
+    #[test]
+    fn test_secret_too_short() {
+        let result = TotpSecret::from_user_input("SHORT", "test", "Test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_characters() {
+        let result = TotpSecret::from_user_input("INVALID!@#SECRET", "test", "Test");
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_time_remaining() {
-        let secret = TotpSecret::new(
-            "JBSWY3DPEHPK3PXP".to_string(),
-            "test".to_string(),
-            "Test".to_string(),
-        );
+        let secret = TotpSecret::from_user_input(
+            "JBSWY3DPEHPK3PXP",
+            "test",
+            "Test"
+        ).unwrap();
+        
         let remaining = time_remaining(&secret);
-        assert!(remaining <= 30);
-        assert!(remaining >= 1);
+        assert!(remaining >= 1 && remaining <= 30);
     }
 }

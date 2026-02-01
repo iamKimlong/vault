@@ -30,6 +30,7 @@ impl App {
             Action::CopyPassword => self.copy_secret()?,
             Action::CopyUsername => self.copy_username()?,
             Action::CopyTotp => self.copy_totp()?,
+            Action::CopyTotpUri => self.copy_totp_uri()?,
             Action::TogglePasswordVisibility => self.toggle_password()?,
 
             Action::Delete => self.initiate_delete(),

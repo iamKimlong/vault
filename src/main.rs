@@ -469,12 +469,9 @@ fn run_app(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::error:
 }
 
 fn app_iteration(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std::error::Error>> {
+    app.tick_totp();
     terminal.draw(|frame| app.render(frame))?;
-
-    if process_app_input(terminal, app)? {
-        return Ok(true);
-    }
-
+    if process_app_input(terminal, app)? { return Ok(true); }
     app.check_password_timeout();
     check_auto_lock(terminal, app)?;
     Ok(false)
