@@ -27,16 +27,12 @@ impl Default for AppConfig {
 #[derive(Debug, Clone)]
 pub enum PendingAction {
     DeleteCredential(String),
-    LockVault,
-    Quit,
 }
 
 impl PendingAction {
     pub fn confirm_message(&self) -> &'static str {
         match self {
             Self::DeleteCredential(_) => "Delete this credential?",
-            Self::LockVault => "Lock the vault?",
-            Self::Quit => "Quit Vault?",
         }
     }
 }

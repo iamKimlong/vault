@@ -26,7 +26,7 @@ impl App {
             return self.search_credentials(&query);
         }
         let db = self.vault.db()?;
-        self.credentials = crate::db::get_all_credentials(db.conn())?;
+        self.credentials = crate::vault::search::get_all(db.conn())?;
         self.credential_items = self.credentials.iter().map(|c| credential_to_item(c)).collect();
         self.list_state.set_total(self.credential_items.len());
         Ok(())
@@ -47,7 +47,7 @@ impl App {
             return self.update_selected_detail();
         }
         let db = self.vault.db()?;
-        let results = crate::db::search_credentials(db.conn(), query)?;
+        let results = crate::vault::search::search_credentials(db.conn(), query)?;
         self.credential_items = results.iter().map(|c| credential_to_item(c)).collect();
         self.credentials = results;
         self.list_state.set_total(self.credential_items.len());
@@ -56,7 +56,7 @@ impl App {
 
     pub fn filter_by_tag(&mut self, tags: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let db = self.vault.db()?;
-        let results = crate::db::get_credentials_by_tag(db.conn(), tags)?;
+        let results = crate::vault::search::filter_by_tags(db.conn(), tags)?;
         self.credential_items = results.iter().map(|c| credential_to_item(c)).collect();
         self.credentials = results;
         self.list_state.set_total(self.credential_items.len());

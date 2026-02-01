@@ -25,7 +25,6 @@ pub enum VaultState {
 #[derive(Debug, Clone)]
 pub struct VaultConfig {
     pub path: PathBuf,
-    pub auto_lock_timeout: Duration,
 }
 
 impl Default for VaultConfig {
@@ -35,10 +34,7 @@ impl Default for VaultConfig {
             .join("credlock")
             .join("vault.db");
 
-        Self {
-            path,
-            auto_lock_timeout: Duration::from_secs(300),
-        }
+        Self { path }
     }
 }
 
@@ -134,8 +130,8 @@ impl Vault {
         self.password_hash = None;
     }
 
-    pub fn should_auto_lock(&self) -> bool {
-        self.is_unlocked() && self.last_activity.elapsed() > self.config.auto_lock_timeout
+    pub fn time_since_activity(&self) -> Duration {
+        self.last_activity.elapsed()
     }
 
     pub fn update_activity(&mut self) {

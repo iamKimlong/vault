@@ -72,6 +72,7 @@ impl Default for KdfParams {
 
 impl KdfParams {
     /// Create params for testing (fast but insecure)
+    #[cfg(test)]
     pub fn testing() -> Self {
         Self {
             memory_cost: 1024, // 1 MiB

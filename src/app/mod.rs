@@ -226,4 +226,8 @@ impl App {
             }
         }
     }
+
+    pub fn should_auto_lock(&self) -> bool {
+        self.vault.is_unlocked() && self.vault.time_since_activity() > self.config.auto_lock_timeout
+    }
 }

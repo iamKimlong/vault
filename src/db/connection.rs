@@ -31,6 +31,7 @@ impl Default for DatabaseConfig {
 
 impl DatabaseConfig {
     /// Create config for in-memory database (testing)
+    #[cfg(test)]
     pub fn in_memory() -> Self {
         Self {
             path: PathBuf::from(":memory:"),
@@ -72,12 +73,8 @@ impl Database {
         Ok(Self { conn, config })
     }
 
-    /// Open with default configuration
-    pub fn open_default() -> DbResult<Self> {
-        Self::open(DatabaseConfig::default())
-    }
-
     /// Open in-memory database for testing
+    #[cfg(test)]
     pub fn open_in_memory() -> DbResult<Self> {
         Self::open(DatabaseConfig::in_memory())
     }
@@ -88,16 +85,19 @@ impl Database {
     }
 
     /// Get mutable reference to connection
+    #[allow(dead_code)]
     pub fn conn_mut(&mut self) -> &mut Connection {
         &mut self.conn
     }
 
     /// Get database path
+    #[allow(dead_code)]
     pub fn path(&self) -> &Path {
         &self.config.path
     }
 
     /// Check if database exists at the configured path
+    #[allow(dead_code)]
     pub fn exists(&self) -> bool {
         if self.config.path.to_str() == Some(":memory:") {
             return true;
@@ -106,12 +106,14 @@ impl Database {
     }
 
     /// Vacuum the database to reclaim space
+    #[allow(dead_code)]
     pub fn vacuum(&self) -> DbResult<()> {
         self.conn.execute("VACUUM", [])?;
         Ok(())
     }
 
     /// Get database size in bytes
+    #[allow(dead_code)]
     pub fn size(&self) -> std::io::Result<u64> {
         if self.config.path.to_str() == Some(":memory:") {
             return Ok(0);
@@ -120,6 +122,7 @@ impl Database {
     }
 
     /// Execute a function within a transaction
+    #[allow(dead_code)]
     pub fn transaction<T, F>(&mut self, f: F) -> DbResult<T>
     where
         F: FnOnce(&Connection) -> DbResult<T>,

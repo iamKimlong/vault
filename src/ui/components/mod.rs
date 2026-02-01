@@ -21,6 +21,5 @@ pub use form::{CredentialForm, CredentialFormWidget};
 pub use list::{CredentialItem, CredentialList, EmptyState, ListViewState};
 pub use statusline::{HelpBar, MessageType, StatusLine};
 pub use dialogs::{ConfirmDialog, PasswordDialog};
-pub use logs::{LogsScreen, LogsState};
 pub use help::{HelpScreen};
-pub use export_dialog::{ExportDialog, ExportDialogWidget};
+pub use export_dialog::ExportDialog;

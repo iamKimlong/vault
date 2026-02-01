@@ -36,13 +36,6 @@ impl DataEncryptionKey {
         dek
     }
 
-    /// Create from raw bytes (used when unwrapping)
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self {
-            key: LockedBuffer::new(bytes),
-        }
-    }
-
     /// Get key bytes for encryption operations
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.key

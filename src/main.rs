@@ -506,10 +506,7 @@ fn handle_password_change_request(terminal: &mut Term, app: &mut App) -> Result<
 }
 
 fn check_auto_lock(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    if app.vault.should_auto_lock() {
-        app.lock();
-    }
-
+    if app.should_auto_lock() { app.lock(); }
     while app.is_locked() && !app.should_quit {
         run_unlock(terminal, app)?;
     }

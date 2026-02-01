@@ -36,7 +36,7 @@ pub fn centered_rect_fixed(width: u16, height: u16, r: Rect, unlocked: bool) -> 
     Rect::new(x, final_y, width.min(r.width), height.min(r.height))
 }
 
-pub fn create_popup_block(title: &str, color: Color) -> Block {
+pub fn create_popup_block(title: &str, color: Color) -> Block<'_> {
     Block::default()
         .title(title)
         .borders(Borders::ALL)

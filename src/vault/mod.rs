@@ -47,4 +47,4 @@ impl From<rusqlite::Error> for VaultError {
 pub type VaultResult<T> = Result<T, VaultError>;
 
 // Re-exports
-pub use manager::{Vault, VaultConfig, VaultState};
+pub use manager::{Vault, VaultConfig};

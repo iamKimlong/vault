@@ -171,17 +171,10 @@ impl App {
 
         match action {
             PendingAction::DeleteCredential(id) => self.delete_credential(&id)?,
-            PendingAction::LockVault => self.confirm_lock(),
-            PendingAction::Quit => self.should_quit = true,
         }
 
         self.mode_state.to_normal();
         Ok(())
-    }
-
-    fn confirm_lock(&mut self) {
-        self.lock();
-        self.set_message("Vault locked", MessageType::Info);
     }
 
     fn quit(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
