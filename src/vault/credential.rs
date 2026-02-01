@@ -188,11 +188,12 @@ pub fn list_credentials(conn: &rusqlite::Connection) -> VaultResult<Vec<Credenti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use secrecy::ExposeSecret;
     use crate::crypto::DataEncryptionKey;
     use crate::db::Database;
 
     fn test_dek() -> DataEncryptionKey {
-        DataEncryptionKey::from_bytes([0x42u8; 32])
+        DataEncryptionKey::generate()
     }
 
     fn setup_test_db() -> Database {
@@ -215,6 +216,7 @@ mod tests {
             None,
             vec![],
             None,
+            None,
         )
         .unwrap()
     }
@@ -235,6 +237,7 @@ mod tests {
             Some("https://example.com".to_string()),
             vec!["test".to_string()],
             Some("These are notes"),
+            None,
         )
         .unwrap();
 
@@ -259,7 +262,7 @@ mod tests {
         let dek = test_dek();
 
         let mut cred = create_test_credential(conn, &dek, "Test", "old_secret");
-        update_credential(conn, &dek, &mut cred, Some("new_secret"), Some("new notes")).unwrap();
+        update_credential(conn, &dek, &mut cred, Some("new_secret"), Some("new notes"), None).unwrap();
 
         let fetched = get_credential(conn, &cred.id).unwrap();
         let decrypted = decrypt_credential(conn, &dek, &fetched, false).unwrap();
@@ -292,12 +295,13 @@ mod tests {
         let dek = DataEncryptionKey::generate();
 
         let cred = create_test_credential(conn, &dek, "Test", "secret_password");
-        let same_dek = DataEncryptionKey::from_bytes(*dek.as_bytes());
-        let decrypted = decrypt_credential(conn, &same_dek, &cred, false).unwrap();
+        
+        // Use same DEK to decrypt
+        let decrypted = decrypt_credential(conn, &dek, &cred, false).unwrap();
 
         assert_eq!(
-            decrypted.secret.as_ref().map(|s| s.expose_secret()),
-            Some("secret_password")
+            decrypted.secret.as_ref().map(|s| s.expose_secret().to_string()),
+            Some("secret_password".to_string())
         );
     }
 }

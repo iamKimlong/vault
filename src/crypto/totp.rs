@@ -247,11 +247,15 @@ mod tests {
 
     #[test]
     fn test_otpauth_uri() {
-        let uri = "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub";
+        let uri = "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=GitHub";
         let secret = TotpSecret::from_user_input(uri, "fallback", "Fallback").unwrap();
         
         assert_eq!(secret.account, "user@example.com");
         assert_eq!(secret.issuer, "GitHub");
+        
+        // Should generate valid code
+        let code = generate_totp(&secret).unwrap();
+        assert_eq!(code.len(), 6);
     }
 
     #[test]

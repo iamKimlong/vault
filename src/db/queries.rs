@@ -31,6 +31,7 @@ pub fn create_credential(conn: &Connection, credential: &Credential) -> DbResult
             credential.encrypted_secret,
             credential.encrypted_notes,
             credential.encrypted_totp_secret,
+            credential.url,
             tags_json,
             credential.created_at.to_rfc3339(),
             credential.updated_at.to_rfc3339(),
