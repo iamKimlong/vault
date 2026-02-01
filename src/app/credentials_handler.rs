@@ -22,6 +22,9 @@ use super::App;
 
 impl App {
     pub fn refresh_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(query) = self.search_query.clone() {
+            return self.search_credentials(&query);
+        }
         let db = self.vault.db()?;
         self.credentials = crate::db::get_all_credentials(db.conn())?;
         self.credential_items = self.credentials.iter().map(|c| credential_to_item(c)).collect();
