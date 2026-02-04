@@ -12,6 +12,8 @@ use ratatui::{
 
 use crate::db::models::CredentialType;
 use crate::ui::renderer::View;
+use crossterm::event::{KeyCode, KeyModifiers};
+use crate::input::{handle_text_key, TextBuffer, TextEditing};
 
 use super::scroll::render_v_scroll_indicator;
 
@@ -225,21 +227,39 @@ impl CredentialForm {
     }
 
     pub fn insert_char(&mut self, c: char) {
-        let field = &mut self.fields[self.active_field];
-        if field.field_type == FieldType::Select {
+        if self.active_field().field_type == FieldType::Select {
             return;
         }
-        field.value.insert(self.cursor, c);
-        self.cursor += 1;
+        let mut buf = self.active_buffer();
+        buf.insert_char(c);
+        self.apply_buffer(buf);
     }
 
     pub fn delete_char(&mut self) {
-        let field = &mut self.fields[self.active_field];
-        if self.cursor == 0 || field.field_type == FieldType::Select {
+        if self.active_field().field_type == FieldType::Select {
             return;
         }
-        self.cursor -= 1;
-        field.value.remove(self.cursor);
+        let mut buf = self.active_buffer();
+        buf.delete_char();
+        self.apply_buffer(buf);
+    }
+
+    pub fn delete_word(&mut self) {
+        if self.active_field().field_type == FieldType::Select {
+            return;
+        }
+        let mut buf = self.active_buffer();
+        buf.delete_word();
+        self.apply_buffer(buf);
+    }
+
+    pub fn clear_to_start(&mut self) {
+        if self.active_field().field_type == FieldType::Select {
+            return;
+        }
+        let mut buf = self.active_buffer();
+        buf.clear_to_start();
+        self.apply_buffer(buf);
     }
 
     pub fn cursor_left(&mut self) {
@@ -251,6 +271,39 @@ impl CredentialForm {
     pub fn cursor_right(&mut self) {
         if self.cursor < self.fields[self.active_field].value.len() {
             self.cursor += 1;
+        }
+    }
+
+    pub fn cursor_home(&mut self) {
+        self.cursor = 0;
+    }
+
+    pub fn cursor_end(&mut self) {
+        self.cursor = self.fields[self.active_field].value.len();
+    }
+
+    fn active_buffer(&self) -> TextBuffer {
+        let field = &self.fields[self.active_field];
+        let mut buf = TextBuffer::with_content(&field.value);
+        buf.cursor_home();
+        for _ in 0..self.cursor {
+            buf.cursor_right();
+        }
+        buf
+    }
+
+    fn apply_buffer(&mut self, buf: TextBuffer) {
+        self.fields[self.active_field].value = buf.content().to_string();
+        self.cursor = buf.cursor();
+    }
+
+    pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers) {
+        if self.active_field().field_type == FieldType::Select {
+            return;
+        }
+        let mut buf = self.active_buffer();
+        if handle_text_key(&mut buf, code, mods) {
+            self.apply_buffer(buf);
         }
     }
 

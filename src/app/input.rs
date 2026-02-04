@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use crate::input::{
     keymap::{confirm_action, normal_mode_action, text_input_action, Action},
-    modes::InputMode
+    modes::InputMode,
 };
 use crate::ui::{
     components::{help::HelpScreen, logs::LogsScreen, tags::TagsPopup},
@@ -68,11 +68,13 @@ impl App {
         match action {
             Action::InsertChar(c) => { self.mode_state.insert_char(c); Action::None }
             Action::DeleteChar => { self.mode_state.delete_char(); Action::None }
+            Action::DeleteWord => { self.mode_state.delete_word(); Action::None }
             Action::CursorLeft => { self.mode_state.cursor_left(); Action::None }
             Action::CursorRight => { self.mode_state.cursor_right(); Action::None }
             Action::CursorHome => { self.mode_state.cursor_home(); Action::None }
             Action::CursorEnd => { self.mode_state.cursor_end(); Action::None }
             Action::ClearLine => { self.mode_state.clear_buffer(); Action::None }
+            Action::ClearToStart => { self.mode_state.clear_to_start(); Action::None }
             Action::Submit => self.submit_text_input(),
             Action::Cancel => { self.mode_state.to_normal(); Action::None }
             _ => action,
@@ -131,11 +133,7 @@ impl App {
             (KeyCode::BackTab, _) | (KeyCode::Up, _) => dialog.prev_field(),
             (KeyCode::Char(' '), KeyModifiers::NONE) => handle_export_space(dialog),
             (KeyCode::Char(' '), KeyModifiers::CONTROL) => handle_export_ctrl_space(dialog),
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => dialog.insert_char(c),
-            (KeyCode::Backspace, _) => dialog.delete_char(),
-            (KeyCode::Left, _) => dialog.cursor_left(),
-            (KeyCode::Right, _) => dialog.cursor_right(),
-            _ => {}
+            _ => { dialog.handle_text_key(key.code, key.modifiers); }
         }
 
         Action::None
@@ -162,11 +160,7 @@ fn dispatch_form_key(form: &mut CredentialForm, code: KeyCode, mods: KeyModifier
         (KeyCode::BackTab, _) | (KeyCode::Up, _) => form.prev_field(),
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => form.toggle_password_visibility(),
         (KeyCode::Char(' '), m) if form.is_select_field() => form.cycle_type(m != KeyModifiers::CONTROL),
-        (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => form.insert_char(c),
-        (KeyCode::Backspace, _) => form.delete_char(),
-        (KeyCode::Left, _) => form.cursor_left(),
-        (KeyCode::Right, _) => form.cursor_right(),
-        _ => {}
+        _ => { form.handle_text_key(code, mods); }
     }
 }
 

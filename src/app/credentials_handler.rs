@@ -2,7 +2,7 @@ use secrecy::ExposeSecret;
 use std::path::Path;
 
 use crate::crypto::{totp::{self, TotpSecret}, decrypt_string};
-use crate::db::{models::{Credential, CredentialType}, AuditAction};
+use crate::db::{models::Credential, AuditAction};
 use crate::ui::{
     components::{
         ExportDialog,
@@ -17,6 +17,7 @@ use crate::vault::{
     credential::DecryptedCredential,
     export::{ExportData, ExportCredential, export_to_file, credential_to_export}
 };
+use crate::input::TextEditing;
 
 use super::App;
 
@@ -343,7 +344,7 @@ impl App {
         self.write_export_file(&data, dialog)?;
 
         let path = dialog.path.clone();
-        self.finalize_export(&path)?;
+        self.finalize_export(path.content())?;
 
         Ok(())
     }
@@ -385,7 +386,7 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let passphrase_opt = dialog.get_passphrase();
         let passphrase = passphrase_opt.as_ref().map(|s| s.expose_secret().as_ref());
-        export_to_file(data, dialog.format, dialog.encryption, passphrase, Path::new(&dialog.path))?;
+        export_to_file(data, dialog.format, dialog.encryption, passphrase, Path::new(dialog.path.content()))?;
         Ok(())
     }
     

@@ -8,9 +8,11 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, BorderType, Borders, Clear, Widget},
 };
-use secrecy::{SecretString, zeroize::Zeroizing};
+use secrecy::SecretString;
+use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::vault::export::{ExportEncryption, ExportFormat};
+use crate::input::{handle_text_key, SecureTextBuffer, TextBuffer, TextEditing};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportField {
@@ -61,10 +63,8 @@ pub struct ExportDialog {
     pub active_field: ExportField,
     pub format: ExportFormat,
     pub encryption: ExportEncryption,
-    passphrase: Zeroizing<String>,
-    pub passphrase_cursor: usize,
-    pub path: String,
-    pub path_cursor: usize,
+    passphrase: SecureTextBuffer,
+    pub path: TextBuffer,
     pub error: Option<String>,
 }
 
@@ -81,10 +81,8 @@ impl ExportDialog {
             active_field: ExportField::Format,
             format: ExportFormat::Json,
             encryption: default_encryption,
-            passphrase: Zeroizing::new(String::new()),
-            passphrase_cursor: 0,
-            path: default_export_path(ExportFormat::Json, default_encryption),
-            path_cursor: 0,
+            passphrase: SecureTextBuffer::new(),
+            path: TextBuffer::with_content(default_export_path(ExportFormat::Json, default_encryption)),
             error: None,
         }
     }
@@ -101,8 +99,8 @@ impl ExportDialog {
 
     fn update_cursor_to_end(&mut self) {
         match self.active_field {
-            ExportField::Passphrase => self.passphrase_cursor = self.passphrase.len(),
-            ExportField::Path => self.path_cursor = self.path.len(),
+            ExportField::Passphrase => self.passphrase.cursor_end(),
+            ExportField::Path => self.path.cursor_end(),
             _ => {}
         }
     }
@@ -142,13 +140,14 @@ impl ExportDialog {
         
         if self.active_field == ExportField::Passphrase {
             self.active_field = ExportField::Path;
-            self.path_cursor = self.path.len();
+            self.path.cursor_end();
         }
     }
 
     fn update_path_extension(&mut self) {
         let base = self
             .path
+            .content()
             .trim_end_matches(".gpg")
             .trim_end_matches(".age")
             .trim_end_matches(".json")
@@ -161,110 +160,89 @@ impl ExportDialog {
 
         let enc_ext = self.encryption.file_extension();
 
-        self.path = format!("{}{}{}", base, format_ext, enc_ext);
-        self.path_cursor = self.path.len();
+        self.path.set_content(&format!("{}{}{}", base, format_ext, enc_ext));
     }
 
     pub fn insert_char(&mut self, c: char) {
         match self.active_field {
-            ExportField::Passphrase => self.insert_passphrase_char(c),
-            ExportField::Path => self.insert_path_char(c),
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.insert_char(c),
+            ExportField::Path => self.path.insert_char(c),
             _ => {}
         }
-    }
-
-    fn insert_passphrase_char(&mut self, c: char) {
-        if !self.needs_passphrase() {
-            return;
-        }
-        self.passphrase.insert(self.passphrase_cursor, c);
-        self.passphrase_cursor += 1;
-    }
-
-    fn insert_path_char(&mut self, c: char) {
-        self.path.insert(self.path_cursor, c);
-        self.path_cursor += 1;
     }
 
     pub fn delete_char(&mut self) {
         match self.active_field {
-            ExportField::Passphrase => self.delete_passphrase_char(),
-            ExportField::Path => self.delete_path_char(),
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.delete_char(),
+            ExportField::Path => self.path.delete_char(),
             _ => {}
         }
     }
 
-    fn delete_passphrase_char(&mut self) {
-        if self.passphrase_cursor == 0 || !self.needs_passphrase() {
-            return;
+    pub fn delete_word(&mut self) {
+        match self.active_field {
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.delete_word(),
+            ExportField::Path => self.path.delete_word(),
+            _ => {}
         }
-        self.passphrase_cursor -= 1;
-        self.passphrase.remove(self.passphrase_cursor);
-    }
-
-    fn delete_path_char(&mut self) {
-        if self.path_cursor == 0 {
-            return;
-        }
-        self.path_cursor -= 1;
-        self.path.remove(self.path_cursor);
     }
 
     pub fn cursor_left(&mut self) {
         match self.active_field {
-            ExportField::Passphrase => self.move_passphrase_cursor_left(),
-            ExportField::Path => self.move_path_cursor_left(),
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_left(),
+            ExportField::Path => self.path.cursor_left(),
             _ => {}
         }
-    }
-
-    fn move_passphrase_cursor_left(&mut self) {
-        if self.passphrase_cursor == 0 {
-            return;
-        }
-        if !self.needs_passphrase() {
-            return;
-        }
-        self.passphrase_cursor -= 1;
-    }
-
-    fn move_path_cursor_left(&mut self) {
-        if self.path_cursor == 0 {
-            return;
-        }
-        self.path_cursor -= 1;
     }
 
     pub fn cursor_right(&mut self) {
         match self.active_field {
-            ExportField::Passphrase => self.move_passphrase_cursor_right(),
-            ExportField::Path => self.move_path_cursor_right(),
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_right(),
+            ExportField::Path => self.path.cursor_right(),
             _ => {}
         }
     }
 
-    fn move_passphrase_cursor_right(&mut self) {
-        if self.passphrase_cursor >= self.passphrase.len() {
-            return;
+    pub fn cursor_home(&mut self) {
+        match self.active_field {
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_home(),
+            ExportField::Path => self.path.cursor_home(),
+            _ => {}
         }
-        if !self.needs_passphrase() {
-            return;
-        }
-        self.passphrase_cursor += 1;
     }
 
-    fn move_path_cursor_right(&mut self) {
-        if self.path_cursor >= self.path.len() {
-            return;
+    pub fn cursor_end(&mut self) {
+        match self.active_field {
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_end(),
+            ExportField::Path => self.path.cursor_end(),
+            _ => {}
         }
-        self.path_cursor += 1;
+    }
+
+    pub fn clear_to_start(&mut self) {
+        match self.active_field {
+            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.clear_to_start(),
+            ExportField::Path => self.path.clear_to_start(),
+            _ => {}
+        }
+    }
+
+    pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers) {
+        match self.active_field {
+            ExportField::Passphrase if self.needs_passphrase() => {
+                handle_text_key(&mut self.passphrase, code, mods);
+            }
+            ExportField::Path => {
+                handle_text_key(&mut self.path, code, mods);
+            }
+            _ => {}
+        }
     }
 
     pub fn needs_passphrase(&self) -> bool {
         self.encryption != ExportEncryption::None
     }
 
-    // For validation - check length without exposing
     pub fn passphrase_is_empty(&self) -> bool {
         self.passphrase.is_empty()
     }
@@ -274,10 +252,10 @@ impl ExportDialog {
         self.passphrase.len()
     }
 
-    // Only expose when actually needed for export
+    // Only expose when needed for export
     pub fn get_passphrase(&self) -> Option<SecretString> {
         if self.needs_passphrase() {
-            Some(SecretString::from((*self.passphrase).clone()))
+            Some(SecretString::from(self.passphrase.content().to_string()))
         } else {
             None
         }
@@ -287,7 +265,7 @@ impl ExportDialog {
         if self.needs_passphrase() && self.passphrase.is_empty() {
             return Err("Passphrase required for encrypted export".into());
         }
-        if self.path.trim().is_empty() {
+        if self.path.content().trim().is_empty() {
             return Err("Output path is required".into());
         }
         Ok(())
@@ -399,8 +377,8 @@ fn render_passphrase_field(
         x,
         y,
         "Passphrase:",
-        &dialog.passphrase,
-        dialog.passphrase_cursor,
+        &"*".repeat(dialog.passphrase_len()),
+        dialog.passphrase.cursor(),
         dialog.active_field == ExportField::Passphrase && passphrase_enabled,
         true,
         label_width,
@@ -423,8 +401,8 @@ fn render_path_field(
         x,
         y,
         "Path:",
-        &dialog.path,
-        dialog.path_cursor,
+        dialog.path.content(),
+        dialog.path.cursor(),
         dialog.active_field == ExportField::Path,
         false,
         label_width,

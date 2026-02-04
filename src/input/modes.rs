@@ -2,31 +2,23 @@
 //!
 //! Modal editing state machine for vim-style interface.
 
+use super::{TextBuffer, TextEditing};
+
 /// Input mode enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
-    /// Normal navigation mode
     Normal,
-    /// Text input mode (insert)
     Insert,
-    /// Command line mode (:)
     Command,
-    /// Search mode (/)
     Search,
-    /// Confirmation dialog
     Confirm,
-    /// Help screen
     Help,
-    /// Logs screen
     Logs,
-    /// Tags screen
     Tags,
-    /// Export dialog
     Export,
 }
 
 impl InputMode {
-    /// Get mode indicator for status line
     pub fn indicator(&self) -> &'static str {
         match self {
             Self::Normal => "NORMAL",
@@ -41,7 +33,6 @@ impl InputMode {
         }
     }
 
-    /// Check if mode accepts text input
     pub fn is_text_input(&self) -> bool {
         matches!(self, Self::Insert | Self::Command | Self::Search)
     }
@@ -50,13 +41,8 @@ impl InputMode {
 /// Mode state with associated data
 #[derive(Debug, Clone)]
 pub struct ModeState {
-    /// Current mode
     pub mode: InputMode,
-    /// Text buffer for input modes
-    pub buffer: String,
-    /// Cursor position in buffer
-    pub cursor: usize,
-    /// Pending key sequence (for multi-key commands like gg, dd)
+    pub buffer: TextBuffer,
     pub pending: Option<char>,
 }
 
@@ -64,132 +50,106 @@ impl Default for ModeState {
     fn default() -> Self {
         Self {
             mode: InputMode::Normal,
-            buffer: String::new(),
-            cursor: 0,
+            buffer: TextBuffer::new(),
             pending: None,
         }
     }
 }
 
 impl ModeState {
-    /// Create new mode state
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Switch to a new mode
     pub fn set_mode(&mut self, mode: InputMode) {
         self.mode = mode;
         self.buffer.clear();
-        self.cursor = 0;
         self.pending = None;
     }
 
-    /// Switch to normal mode
     pub fn to_normal(&mut self) {
         self.set_mode(InputMode::Normal);
     }
 
-    /// Switch to insert mode
     pub fn to_insert(&mut self) {
         self.set_mode(InputMode::Insert);
     }
 
-    /// Switch to command mode
     pub fn to_command(&mut self) {
         self.set_mode(InputMode::Command);
     }
 
-    /// Switch to search mode
     pub fn to_search(&mut self) {
         self.set_mode(InputMode::Search);
     }
 
-    /// Switch to confirm mode
     pub fn to_confirm(&mut self) {
         self.set_mode(InputMode::Confirm);
     }
 
-    /// Switch to help mode
     pub fn to_help(&mut self) {
         self.set_mode(InputMode::Help);
     }
 
-    /// Switch to tag mode
     pub fn to_tags(&mut self) {
         self.mode = InputMode::Tags;
     }
 
-    /// Switch to log mode
     pub fn to_logs(&mut self) {
         self.mode = InputMode::Logs;
     }
 
-    /// Insert character at cursor
-    pub fn insert_char(&mut self, c: char) {
-        self.buffer.insert(self.cursor, c);
-        self.cursor += 1;
-    }
-
-    /// Delete character before cursor (backspace)
-    pub fn delete_char(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-            self.buffer.remove(self.cursor);
-        }
-    }
-
-    /// Delete character at cursor (delete key)
-    pub fn delete_char_forward(&mut self) {
-        if self.cursor < self.buffer.len() {
-            self.buffer.remove(self.cursor);
-        }
-    }
-
-    /// Move cursor left
-    pub fn cursor_left(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-        }
-    }
-
-    /// Move cursor right
-    pub fn cursor_right(&mut self) {
-        if self.cursor < self.buffer.len() {
-            self.cursor += 1;
-        }
-    }
-
-    /// Move cursor to start
-    pub fn cursor_home(&mut self) {
-        self.cursor = 0;
-    }
-
-    /// Move cursor to end
-    pub fn cursor_end(&mut self) {
-        self.cursor = self.buffer.len();
-    }
-
-    /// Clear buffer
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear();
-        self.cursor = 0;
-    }
-
-    /// Get buffer contents
-    pub fn get_buffer(&self) -> &str {
-        &self.buffer
-    }
-
-    /// Set buffer contents
-    pub fn set_buffer(&mut self, content: &str) {
-        self.buffer = content.to_string();
-        self.cursor = self.buffer.len();
-    }
-
-    /// Set mode to export
     pub fn to_export(&mut self) {
         self.set_mode(InputMode::Export);
+    }
+
+    // Convenience methods that delegate to buffer
+    pub fn insert_char(&mut self, c: char) {
+        self.buffer.insert_char(c);
+    }
+
+    pub fn delete_char(&mut self) {
+        self.buffer.delete_char();
+    }
+
+    pub fn delete_char_forward(&mut self) {
+        self.buffer.delete_char_forward();
+    }
+
+    pub fn delete_word(&mut self) {
+        self.buffer.delete_word();
+    }
+
+    pub fn cursor_left(&mut self) {
+        self.buffer.cursor_left();
+    }
+
+    pub fn cursor_right(&mut self) {
+        self.buffer.cursor_right();
+    }
+
+    pub fn cursor_home(&mut self) {
+        self.buffer.cursor_home();
+    }
+
+    pub fn cursor_end(&mut self) {
+        self.buffer.cursor_end();
+    }
+
+    pub fn clear_buffer(&mut self) {
+        self.buffer.clear();
+    }
+
+    pub fn clear_to_start(&mut self) {
+        self.buffer.clear_to_start();
+    }
+
+    pub fn get_buffer(&self) -> &str {
+        self.buffer.content()
+    }
+
+    pub fn set_buffer(&mut self, content: &str) {
+        self.buffer.set_content(content);
     }
 }
 
@@ -236,14 +196,12 @@ mod tests {
         let mut state = ModeState::new();
         state.to_insert();
 
-        state.insert_char('h');
-        state.insert_char('e');
-        state.insert_char('l');
-        state.insert_char('l');
-        state.insert_char('o');
+        for c in "hello".chars() {
+            state.insert_char(c);
+        }
 
         assert_eq!(state.get_buffer(), "hello");
-        assert_eq!(state.cursor, 5);
+        assert_eq!(state.buffer.cursor(), 5);
 
         state.delete_char();
         assert_eq!(state.get_buffer(), "hell");
@@ -255,16 +213,16 @@ mod tests {
         state.set_buffer("hello");
 
         state.cursor_home();
-        assert_eq!(state.cursor, 0);
+        assert_eq!(state.buffer.cursor(), 0);
 
         state.cursor_end();
-        assert_eq!(state.cursor, 5);
+        assert_eq!(state.buffer.cursor(), 5);
 
         state.cursor_left();
-        assert_eq!(state.cursor, 4);
+        assert_eq!(state.buffer.cursor(), 4);
 
         state.cursor_right();
-        assert_eq!(state.cursor, 5);
+        assert_eq!(state.buffer.cursor(), 5);
     }
 
     #[test]

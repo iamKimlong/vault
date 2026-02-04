@@ -11,7 +11,8 @@ use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use zeroize::Zeroize;
+
+use crate::input::{handle_text_key, SecureTextBuffer, TextEditing};
 
 mod app;
 mod crypto;
@@ -96,55 +97,11 @@ fn poll_key_press() -> Result<Option<KeyEvent>, Box<dyn std::error::Error>> {
     Ok(Some(key))
 }
 
-struct PasswordField {
-    value: String,
-    cursor: usize,
-}
-
-impl Default for PasswordField {
-    fn default() -> Self {
-        Self { value: String::new(), cursor: 0 }
-    }
-}
-
-impl Drop for PasswordField {
-    fn drop(&mut self) {
-        self.value.zeroize();
-    }
-}
-
-impl PasswordField {
-    fn clear(&mut self) {
-        self.value.zeroize();
-        self.cursor = 0;
-    }
-}
-
-fn handle_password_key(field: &mut PasswordField, code: KeyCode) {
-    match code {
-        KeyCode::Backspace if field.cursor > 0 => password_backspace(field),
-        KeyCode::Char(c) => password_insert(field, c),
-        KeyCode::Left if field.cursor > 0 => field.cursor -= 1,
-        KeyCode::Right if field.cursor < field.value.len() => field.cursor += 1,
-        _ => {}
-    }
-}
-
-fn password_backspace(field: &mut PasswordField) {
-    field.cursor -= 1;
-    field.value.remove(field.cursor);
-}
-
-fn password_insert(field: &mut PasswordField, c: char) {
-    field.value.insert(field.cursor, c);
-    field.cursor += 1;
-}
-
 fn draw_password_dialog(
     terminal: &mut Term,
     title: &str,
     prompt: &str,
-    field: &PasswordField,
+    field: &SecureTextBuffer,
     error: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     terminal.draw(|frame| {
@@ -157,10 +114,10 @@ fn draw_password_dialog(
 fn build_password_dialog<'a>(
     title: &'a str,
     prompt: &'a str,
-    field: &'a PasswordField,
+    field: &'a SecureTextBuffer,
     error: Option<&'a str>,
 ) -> ui::PasswordDialog<'a> {
-    let dialog = ui::PasswordDialog::new(title, prompt, &field.value, field.cursor);
+    let dialog = ui::PasswordDialog::new(title, prompt, field.content(), field.cursor());
     match error {
         Some(err) => dialog.error(err),
         None => dialog,
@@ -176,13 +133,24 @@ fn run_init(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-#[derive(Default)]
 struct InitState {
-    password: PasswordField,
-    confirm: PasswordField,
+    password: SecureTextBuffer,
+    confirm: SecureTextBuffer,
     confirming: bool,
     error: Option<String>,
     done: bool,
+}
+
+impl Default for InitState {
+    fn default() -> Self {
+        Self {
+            password: SecureTextBuffer::new(),
+            confirm: SecureTextBuffer::new(),
+            confirming: false,
+            error: None,
+            done: false,
+        }
+    }
 }
 
 fn init_iteration(terminal: &mut Term, app: &mut App, state: &mut InitState) -> Result<(), Box<dyn std::error::Error>> {
@@ -197,9 +165,9 @@ fn init_iteration(terminal: &mut Term, app: &mut App, state: &mut InitState) -> 
 
 fn init_dialog_params<'a>(
     confirming: bool,
-    password: &'a PasswordField,
-    confirm: &'a PasswordField,
-) -> (&'static str, &'static str, &'a PasswordField) {
+    password: &'a SecureTextBuffer,
+    confirm: &'a SecureTextBuffer,
+) -> (&'static str, &'static str, &'a SecureTextBuffer) {
     if confirming {
         (" Confirm Password ", "Confirm password:", confirm)
     } else {
@@ -220,7 +188,7 @@ fn handle_init_key(key: KeyEvent, state: &mut InitState, app: &mut App) {
     }
 
     let field = if state.confirming { &mut state.confirm } else { &mut state.password };
-    handle_password_key(field, key.code);
+    handle_text_key(field, key.code, key.modifiers);
 }
 
 fn process_init_submit(state: &mut InitState, app: &mut App) {
@@ -235,8 +203,8 @@ fn process_init_enter(state: &mut InitState, app: &mut App) -> Option<String> {
     finalize_init(state, app)
 }
 
-fn validate_init_password(password: &PasswordField, confirming: &mut bool) -> Option<String> {
-    if password.value.len() < 8 {
+fn validate_init_password(password: &SecureTextBuffer, confirming: &mut bool) -> Option<String> {
+    if password.len() < 8 {
         return Some("Password must be at least 8 characters".into());
     }
     *confirming = true;
@@ -244,14 +212,14 @@ fn validate_init_password(password: &PasswordField, confirming: &mut bool) -> Op
 }
 
 fn finalize_init(state: &mut InitState, app: &mut App) -> Option<String> {
-    if state.password.value != state.confirm.value {
+    if state.password.content() != state.confirm.content() {
         state.password.clear();
         state.confirm.clear();
         state.confirming = false;
         return Some("Passwords do not match".into());
     }
 
-    if let Err(e) = app.initialize(&state.password.value) {
+    if let Err(e) = app.initialize(state.password.content()) {
         state.confirm.clear();
         return Some(format!("Failed to initialize: {}", e));
     }
@@ -269,12 +237,22 @@ fn run_unlock(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
-#[derive(Default)]
 struct UnlockState {
-    password: PasswordField,
+    password: SecureTextBuffer,
     error: Option<String>,
     attempts: u32,
     done: bool,
+}
+
+impl Default for UnlockState {
+    fn default() -> Self {
+        Self {
+            password: SecureTextBuffer::new(),
+            error: None,
+            attempts: 0,
+            done: false,
+        }
+    }
 }
 
 fn unlock_iteration(terminal: &mut Term, app: &mut App, state: &mut UnlockState) -> Result<(), Box<dyn std::error::Error>> {
@@ -298,11 +276,11 @@ fn handle_unlock_key(key: KeyEvent, state: &mut UnlockState, app: &mut App) {
         return;
     }
 
-    handle_password_key(&mut state.password, key.code);
+    handle_text_key(&mut state.password, key.code, key.modifiers);
 }
 
 fn process_unlock_attempt(state: &mut UnlockState, app: &mut App) {
-    if app.unlock(&state.password.value).is_ok() {
+    if app.unlock(state.password.content()).is_ok() {
         state.done = true;
         return;
     }
@@ -319,20 +297,26 @@ fn process_unlock_attempt(state: &mut UnlockState, app: &mut App) {
 }
 
 struct PasswordChangeState {
-    current: PasswordField,
-    new_pass: PasswordField,
-    confirm: PasswordField,
+    current: SecureTextBuffer,
+    new_pass: SecureTextBuffer,
+    confirm: SecureTextBuffer,
     step: u8,
     error: Option<String>,
 }
 
 impl Default for PasswordChangeState {
     fn default() -> Self {
-        Self { current: PasswordField::default(), new_pass: PasswordField::default(), confirm: PasswordField::default(), step: 0, error: None }
+        Self {
+            current: SecureTextBuffer::new(),
+            new_pass: SecureTextBuffer::new(),
+            confirm: SecureTextBuffer::new(),
+            step: 0,
+            error: None,
+        }
     }
 }
 
-fn change_current_field(state: &mut PasswordChangeState) -> &mut PasswordField {
+fn change_current_field(state: &mut PasswordChangeState) -> &mut SecureTextBuffer {
     match state.step {
         0 => &mut state.current,
         1 => &mut state.new_pass,
@@ -340,7 +324,7 @@ fn change_current_field(state: &mut PasswordChangeState) -> &mut PasswordField {
     }
 }
 
-fn change_prompt_and_field(state: &PasswordChangeState) -> (&'static str, &PasswordField) {
+fn change_prompt_and_field(state: &PasswordChangeState) -> (&'static str, &SecureTextBuffer) {
     match state.step {
         0 => ("Current password:", &state.current),
         1 => ("New password:", &state.new_pass),
@@ -391,7 +375,7 @@ fn handle_change_key(key: KeyEvent, state: &mut PasswordChangeState, vault: &mut
         return process_change_step(state, vault);
     }
 
-    handle_password_key(change_current_field(state), key.code);
+    handle_text_key(change_current_field(state), key.code, key.modifiers);
     ChangeResult::Continue
 }
 
@@ -404,7 +388,7 @@ fn process_change_step(state: &mut PasswordChangeState, vault: &mut vault::Vault
 }
 
 fn process_change_verify(state: &mut PasswordChangeState, vault: &mut vault::Vault) -> ChangeResult {
-    if let Err(e) = vault.verify_password(&state.current.value) {
+    if let Err(e) = vault.verify_password(state.current.content()) {
         state.current.clear();
         state.error = Some(change_verify_error_msg(e));
         return ChangeResult::Continue;
@@ -423,13 +407,13 @@ fn change_verify_error_msg(e: vault::VaultError) -> String {
 }
 
 fn process_change_new(state: &mut PasswordChangeState) -> ChangeResult {
-    if state.new_pass.value.len() < 8 {
+    if state.new_pass.len() < 8 {
         state.new_pass.clear();
         state.error = Some("Password must be at least 8 characters".into());
         return ChangeResult::Continue;
     }
 
-    if state.new_pass.value == state.current.value {
+    if state.new_pass.content() == state.current.content() {
         state.new_pass.clear();
         state.error = Some("New password must be different".into());
         return ChangeResult::Continue;
@@ -441,13 +425,13 @@ fn process_change_new(state: &mut PasswordChangeState) -> ChangeResult {
 }
 
 fn process_change_confirm(state: &mut PasswordChangeState, vault: &mut vault::Vault) -> ChangeResult {
-    if state.new_pass.value != state.confirm.value {
+    if state.new_pass.content() != state.confirm.content() {
         state.confirm.clear();
         state.error = Some("Passwords do not match".into());
         return ChangeResult::Continue;
     }
 
-    if let Err(e) = vault.change_password(&state.current.value, &state.new_pass.value) {
+    if let Err(e) = vault.change_password(state.current.content(), state.new_pass.content()) {
         state.error = Some(change_confirm_error_msg(e));
         change_reset(state);
         return ChangeResult::Continue;

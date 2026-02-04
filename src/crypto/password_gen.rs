@@ -125,9 +125,7 @@ pub enum PasswordError {
 impl std::fmt::Display for PasswordError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PasswordError::EmptyCharset => {
-                write!(f, "No characters available with current policy settings")
-            }
+            PasswordError::EmptyCharset => { write!(f, "No characters available with current policy settings") }
         }
     }
 }
@@ -158,9 +156,7 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
     if policy.uppercase {
         let chars = filter_ambiguous(UPPERCASE, policy.exclude_ambiguous);
         if !chars.is_empty() {
-            if let Some(c) = chars.chars().choose(&mut rng) {
-                required.push(c);
-            }
+            if let Some(c) = chars.chars().choose(&mut rng) { required.push(c); }
             charset.push_str(&chars);
         }
     }
@@ -168,9 +164,7 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
     if policy.lowercase {
         let chars = filter_ambiguous(LOWERCASE, policy.exclude_ambiguous);
         if !chars.is_empty() {
-            if let Some(c) = chars.chars().choose(&mut rng) {
-                required.push(c);
-            }
+            if let Some(c) = chars.chars().choose(&mut rng) { required.push(c); }
             charset.push_str(&chars);
         }
     }
@@ -178,9 +172,7 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
     if policy.digits {
         let chars = filter_ambiguous(DIGITS, policy.exclude_ambiguous);
         if !chars.is_empty() {
-            if let Some(c) = chars.chars().choose(&mut rng) {
-                required.push(c);
-            }
+            if let Some(c) = chars.chars().choose(&mut rng) { required.push(c); }
             charset.push_str(&chars);
         }
     }
@@ -194,9 +186,7 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
         // Apply ambiguous filter to custom symbols too
         let chars = filter_ambiguous(base_symbols, policy.exclude_ambiguous);
         if !chars.is_empty() {
-            if let Some(c) = chars.chars().choose(&mut rng) {
-                required.push(c);
-            }
+            if let Some(c) = chars.chars().choose(&mut rng) { required.push(c); }
             charset.push_str(&chars);
         }
     }
