@@ -451,7 +451,7 @@ fn compute_select_display(form: &CredentialForm, field: &FormField) -> DisplayVa
 
 fn compute_text_display(form: &CredentialForm, field: &FormField, value_width: usize) -> DisplayValue {
     let text = if field.masked && !form.show_password {
-        "*".repeat(field.value.len())
+        "•".repeat(field.value.len())
     } else {
         field.value.clone()
     };

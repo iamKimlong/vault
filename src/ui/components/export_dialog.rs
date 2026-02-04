@@ -377,7 +377,7 @@ fn render_passphrase_field(
         x,
         y,
         "Passphrase:",
-        &"*".repeat(dialog.passphrase_len()),
+        &"•".repeat(dialog.passphrase_len()),
         dialog.passphrase.cursor(),
         dialog.active_field == ExportField::Passphrase && passphrase_enabled,
         true,
@@ -548,7 +548,7 @@ fn render_enabled_input(
     bg_color: Color,
 ) {
     let display_value = if masked {
-        "*".repeat(value.len())
+        "•".repeat(value.len())
     } else {
         value.to_string()
     };

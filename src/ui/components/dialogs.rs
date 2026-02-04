@@ -123,7 +123,10 @@ impl Widget for PasswordDialog<'_> {
         buf.set_string(inner.x, inner.y, self.prompt, Style::default().fg(Color::White));
 
         let input_rect = Rect::new(inner.x, inner.y + 1, inner.width, 2);
-        InputField::new("", self.value, self.cursor).masked().render(input_rect, buf);
+        InputField::new("", self.value, self.cursor)
+            .masked()
+            .style(Style::default().fg(Color::Yellow))
+            .render(input_rect, buf);
 
         if let Some(err) = self.error {
             buf.set_string(inner.x, inner.y + 3, err, Style::default().fg(Color::Red));
