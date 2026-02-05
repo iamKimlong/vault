@@ -302,6 +302,7 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             ("yy / c", "Copy password/secret"),
             ("u", "Copy username"),
             ("T", "Copy TOTP code"),
+            ("Ctrl+t", "Copy TOTP secret"),
         ]),
         ("View", vec![
             ("Ctrl+s", "Toggle password"),
