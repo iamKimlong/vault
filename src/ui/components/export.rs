@@ -481,7 +481,7 @@ fn render_select_field(
     
     fill_background(buf, value_x, y, value_width, bg_color);
 
-    let display = format!("{}  [⎵ / ^⎵]", value);
+    let display = format!("{}  [Space/Ctrl+Space]", value);
     let value_style = Style::default().fg(Color::Yellow).bg(bg_color);
     buf.set_string(value_x, y, &display, value_style);
 }
