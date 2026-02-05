@@ -30,11 +30,18 @@ impl TagsState {
         Self::default()
     }
 
-    pub fn set_tags_from_credentials(&mut self, credentials: &[Credential]) {
+    pub fn set_tags_from_credentials(&mut self, credentials: &[Credential], active_filter: Option<&[String]>) {
         self.tags = aggregate_tags(credentials);
         self.scroll.reset();
         self.selected = 0;
         self.selected_tags.clear();
+        
+        // Pre-select tags that are currently being filtered
+        if let Some(filter_tags) = active_filter {
+            for tag in filter_tags {
+                self.selected_tags.insert(tag.clone());
+            }
+        }
     }
 
     pub fn scroll_up(&mut self) {

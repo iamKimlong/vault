@@ -22,6 +22,8 @@ pub fn filter_by_tags(conn: &rusqlite::Connection, tags: &[String]) -> VaultResu
     db::get_credentials_by_tag(conn, tags).map_err(Into::into)
 }
 
+// TODO: wire up filter by type
+#[allow(dead_code)]
 pub fn filter_by_type(conn: &rusqlite::Connection, cred_type: CredentialType) -> VaultResult<Vec<Credential>> {
     let all = get_all(conn)?;
     Ok(all.into_iter().filter(|c| c.credential_type == cred_type).collect())

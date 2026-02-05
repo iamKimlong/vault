@@ -18,7 +18,7 @@ use crate::input::InputMode;
 use crate::ui::components::help::HelpState;
 use crate::ui::components::logs::{LogsScreen, LogsState};
 use crate::ui::components::tags::{TagsPopup, TagsState};
-use crate::ui::components::export_dialog::{ExportDialog, ExportDialogWidget};
+use crate::ui::components::export::{ExportDialog, ExportDialogWidget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
@@ -34,6 +34,7 @@ pub struct UiState<'a> {
     pub list_state: &'a mut ListViewState,
     pub selected_detail: Option<&'a CredentialDetail>,
     pub search_query: Option<&'a str>,
+    pub filter_tags: Option<&'a [String]>,
     pub command_buffer: Option<&'a str>,
     pub message: Option<(&'a str, MessageType)>,
     pub confirm_message: Option<&'a str>,
@@ -103,7 +104,11 @@ fn render_status_line(frame: &mut Frame, area: Rect, state: &UiState) {
         status = status.message(msg, msg_type);
     }
 
-    if let Some(ref query) = state.search_query {
+    if let Some(tags) = state.filter_tags {
+        status = status.filter_tags(tags);
+    }
+
+    if let Some(query) = state.search_query {
         status = status.search_query(query);
     }
 

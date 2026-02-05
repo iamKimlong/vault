@@ -128,8 +128,10 @@ impl App {
         if self.view == View::Detail {
             self.view = View::List;
             Ok(())
+        } else if self.has_active_filters() {
+            self.clear_filters()
         } else {
-            self.search_credentials("")
+            Ok(())
         }
     }
 

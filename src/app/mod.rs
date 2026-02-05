@@ -42,6 +42,7 @@ pub struct App {
     pub selected_credential: Option<DecryptedCredential>,
     pub selected_detail: Option<CredentialDetail>,
     pub search_query: Option<String>,
+    pub filter_tags: Option<Vec<String>>,
     pub message: Option<(String, MessageType, Instant)>,
     pub pending_action: Option<PendingAction>,
     pub password_visible: bool,
@@ -72,6 +73,7 @@ impl App {
             selected_credential: None,
             selected_detail: None,
             search_query: None,
+            filter_tags: None,
             message: None,
             pending_action: None,
             password_visible: false,
@@ -136,6 +138,21 @@ impl App {
         self.clear_credentials();
     }
 
+    pub fn clear_filters(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let had_filters = self.has_active_filters();
+        self.search_query = None;
+        self.filter_tags = None;
+        if had_filters {
+            self.refresh_data()?;
+            self.update_selected_detail()?;
+        }
+        Ok(())
+    }
+
+    pub fn has_active_filters(&self) -> bool {
+        self.search_query.is_some() || self.filter_tags.is_some()
+    }
+
     pub fn log_audit(
         &self,
         action: AuditAction,
@@ -170,8 +187,10 @@ impl App {
         Ok(())
     }
 
-    fn load_tags(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.tags_state.set_tags_from_credentials(&self.credentials);
+    pub fn load_tags(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let db = self.vault.db()?;
+        let all_credentials = crate::vault::search::get_all(db.conn())?;
+        self.tags_state.set_tags_from_credentials(&all_credentials, self.filter_tags.as_deref());
         Ok(())
     }
 
@@ -190,6 +209,7 @@ impl App {
             list_state: &mut self.list_state,
             selected_detail: self.selected_detail.as_ref(),
             search_query: self.search_query.as_deref(),
+            filter_tags: self.filter_tags.as_deref(),
             command_buffer,
             message,
             confirm_message,

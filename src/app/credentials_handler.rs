@@ -23,11 +23,27 @@ use super::App;
 
 impl App {
     pub fn refresh_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(query) = self.search_query.clone() {
-            return self.search_credentials(&query);
-        }
         let db = self.vault.db()?;
-        self.credentials = crate::vault::search::get_all(db.conn())?;
+        
+        let mut results = match &self.filter_tags {
+            Some(tags) if !tags.is_empty() => {
+                crate::vault::search::filter_by_tags(db.conn(), tags)?
+            }
+            _ => crate::vault::search::get_all(db.conn())?,
+        };
+        
+        if let Some(ref query) = self.search_query {
+            if !query.is_empty() {
+                let query_lower = query.to_lowercase();
+                results.retain(|c| {
+                    c.name.to_lowercase().contains(&query_lower)
+                        || c.username.as_ref().is_some_and(|u| u.to_lowercase().contains(&query_lower))
+                        || c.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                });
+            }
+        }
+        
+        self.credentials = results;
         self.credential_items = self.credentials.iter().map(|c| credential_to_item(c)).collect();
         self.list_state.set_total(self.credential_items.len());
         Ok(())
@@ -42,31 +58,21 @@ impl App {
 
     pub fn search_credentials(&mut self, query: &str) -> Result<(), Box<dyn std::error::Error>> {
         self.search_query = if query.is_empty() { None } else { Some(query.to_string()) };
-        
-        if query.is_empty() {
-            self.refresh_data()?;
-            return self.update_selected_detail();
-        }
-        let db = self.vault.db()?;
-        let results = crate::vault::search::search_credentials(db.conn(), query)?;
-        self.credential_items = results.iter().map(|c| credential_to_item(c)).collect();
-        self.credentials = results;
-        self.list_state.set_total(self.credential_items.len());
+        self.refresh_data()?;
         self.update_selected_detail()
     }
 
     pub fn filter_by_tag(&mut self, tags: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-        let db = self.vault.db()?;
-        let results = crate::vault::search::filter_by_tags(db.conn(), tags)?;
-        self.credential_items = results.iter().map(|c| credential_to_item(c)).collect();
-        self.credentials = results;
-        self.list_state.set_total(self.credential_items.len());
+        self.filter_tags = if tags.is_empty() { None } else { Some(tags.to_vec()) };
+        self.refresh_data()?;
 
-        let msg = match tags.len() {
-            1 => format!("Filtered by tag: {}", tags[0]),
-            _ => format!("Filtered by tags: {}", tags.join(" ")),
-        };
-        self.set_message(&msg, MessageType::Info);
+        if !tags.is_empty() {
+            let msg = match tags.len() {
+                1 => format!("Filtered by tag: {}", tags[0]),
+                _ => format!("Filtered by tags: {}", tags.join(", ")),
+            };
+            self.set_message(&msg, MessageType::Info);
+        }
         self.update_selected_detail()
     }
 

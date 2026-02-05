@@ -58,7 +58,11 @@ impl ListViewState {
     }
 
     pub fn set_total(&mut self, total: usize) {
+        let changed = self.total != total;
         self.total = total;
+        if changed {
+            *self.list_state.offset_mut() = 0;
+        }
         self.select(compute_selection_after_total_change(self.selected, total));
     }
 

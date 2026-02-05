@@ -38,6 +38,7 @@ pub struct StatusLine<'a> {
     vault_name: Option<&'a str>,
     item_count: Option<(usize, usize)>,
     search_query: Option<&'a str>,
+    filter_tags: Option<&'a [String]>,
 }
 
 impl<'a> StatusLine<'a> {
@@ -49,6 +50,7 @@ impl<'a> StatusLine<'a> {
             vault_name: None,
             item_count: None,
             search_query: None,
+            filter_tags: None,
         }
     }
 
@@ -74,6 +76,11 @@ impl<'a> StatusLine<'a> {
 
     pub fn search_query(mut self, query: &'a str) -> Self {
         self.search_query = Some(query);
+        self
+    }
+
+    pub fn filter_tags(mut self, tags: &'a [String]) -> Self {
+        self.filter_tags = Some(tags);
         self
     }
 }
@@ -155,16 +162,31 @@ fn render_right_section(
     buf: &mut Buffer,
     area: Rect,
     search_query: Option<&str>,
+    filter_tags: Option<&[String]>,
     item_count: Option<(usize, usize)>,
     vault_name: Option<&str>,
 ) {
     let mut spans: Vec<Span> = Vec::new();
+    let sep = Span::styled(" | ", Style::default().fg(Color::White)); // opts: |, │
+    
+    if let Some(tags) = filter_tags {
+        let tags_display = if tags.len() > 2 {
+            format!("{}+{}", tags[..2].join(","), tags.len() - 2)
+        } else {
+            tags.join(", ")
+        };
+        spans.push(Span::styled("Tags: ", Style::default().fg(Color::Green).bg(Color::DarkGray)));
+        spans.push(Span::styled(tags_display, Style::default().fg(Color::Magenta).bg(Color::DarkGray).add_modifier(Modifier::BOLD)));
+    }
+    
     if let Some(query) = search_query {
+        if !spans.is_empty() { spans.push(sep.clone()); }
         spans.push(Span::styled("Search: ", Style::default().fg(Color::Yellow).bg(Color::DarkGray)));
         spans.push(Span::styled(query, Style::default().fg(Color::Magenta).bg(Color::DarkGray).add_modifier(Modifier::BOLD)));
     }
+    
     if let Some((selected, total)) = item_count {
-        spans.push(Span::styled("  ", Style::default().bg(Color::DarkGray)));
+        if !spans.is_empty() { spans.push(sep.clone()); }
         spans.push(Span::styled(
             (selected + 1).to_string(),
             Style::default().fg(Color::Cyan).bg(Color::DarkGray).add_modifier(Modifier::BOLD),
@@ -175,12 +197,12 @@ fn render_right_section(
             Style::default().fg(Color::Cyan).bg(Color::DarkGray),
         ));
     }
+    
     if let Some(vault) = vault_name {
-        if !spans.is_empty() {
-            spans.push(Span::styled(" ", Style::default().bg(Color::DarkGray)));
-        }
+        if !spans.is_empty() { spans.push(sep); }
         spans.push(Span::styled(vault, Style::default().fg(Color::Gray).bg(Color::DarkGray)));
     }
+    
     let line = Line::from(spans);
     let width = line.width() as u16;
     let x = area.x + area.width.saturating_sub(width + 1);
@@ -199,7 +221,7 @@ impl<'a> Widget for StatusLine<'a> {
 
         render_command_or_message(buf, x, area.y, self.mode, self.command_buffer, self.message);
 
-        render_right_section(buf, area, self.search_query, self.item_count, self.vault_name);
+        render_right_section(buf, area, self.search_query, self.filter_tags, self.item_count, self.vault_name);
     }
 }
 
@@ -256,8 +278,8 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
             ("enter", "filter"),
         ],
         InputMode::Export => vec![
-            ("tab/shift-tab", "cycle next"),
-            ("space/ctrl-space", "cycle"),
+            ("tab/shift-tab", "cycle field"),
+            ("space/ctrl-space", "cycle option"),
             ("enter", "export"),
             ("esc", "cancel"),
         ]

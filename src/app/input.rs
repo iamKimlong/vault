@@ -6,7 +6,7 @@ use crate::input::{
 };
 use crate::ui::{
     components::{help::HelpScreen, logs::LogsScreen, tags::TagsPopup},
-    components::{CredentialForm, MessageType, export_dialog::ExportField},
+    components::{CredentialForm, MessageType, export::ExportField},
     renderer::View,
 };
 
@@ -140,7 +140,7 @@ impl App {
     }
 }
 
-fn handle_export_space(dialog: &mut crate::ui::components::export_dialog::ExportDialog) {
+fn handle_export_space(dialog: &mut crate::ui::components::export::ExportDialog) {
     match dialog.active_field {
         ExportField::Format => dialog.cycle_format(),
         ExportField::Encryption => dialog.cycle_encryption_forward(),
@@ -148,7 +148,7 @@ fn handle_export_space(dialog: &mut crate::ui::components::export_dialog::Export
     }
 }
 
-fn handle_export_ctrl_space(dialog: &mut crate::ui::components::export_dialog::ExportDialog) {
+fn handle_export_ctrl_space(dialog: &mut crate::ui::components::export::ExportDialog) {
     if dialog.active_field == ExportField::Encryption {
         dialog.cycle_encryption_backward();
     }
@@ -324,26 +324,12 @@ fn tags_toggle_and_advance(state: &mut crate::ui::components::tags::TagsState) {
 }
 
 fn handle_tags_select(app: &mut App) -> Option<Action> {
-    let tags = get_selected_tags(app);
-
-    if tags.is_empty() {
-        return None;
-    }
-
+    let tags = app.tags_state.get_selected_tags();
+    
     app.mode_state.to_normal();
+    // Empty tags will clear the filter
     let _ = app.filter_by_tag(&tags);
     None
-}
-
-fn get_selected_tags(app: &App) -> Vec<String> {
-    if app.tags_state.has_selection() {
-        return app.tags_state.get_selected_tags();
-    }
-
-    app.tags_state
-        .selected_tag()
-        .map(|t| vec![t.to_string()])
-        .unwrap_or_default()
 }
 
 impl crate::ui::components::CredentialForm {
