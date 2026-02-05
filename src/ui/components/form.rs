@@ -112,6 +112,10 @@ fn default_fields() -> Vec<FormField> {
     ]
 }
 
+fn is_secret_required(cred_type: CredentialType) -> bool {
+    !matches!(cred_type, CredentialType::Note)
+}
+
 fn cycle_type_forward(cred_type: CredentialType) -> CredentialType {
     match cred_type {
         CredentialType::Password => CredentialType::ApiKey,
@@ -180,6 +184,7 @@ impl CredentialForm {
         form.fields[1].value = cred_type.display_name().to_string();
         form.fields[2].value = username.unwrap_or_default();
         form.fields[3].value = secret;
+        form.fields[3].required = is_secret_required(cred_type);
         form.fields[4].value = url.unwrap_or_default();
         form.fields[5].value = tags.join(" ");
         form.fields[6].value = totp_secret.unwrap_or_default();
@@ -317,6 +322,7 @@ impl CredentialForm {
             cycle_type_backward(self.credential_type)
         };
         self.fields[1].value = self.credential_type.display_name().to_string();
+        self.fields[3].required = is_secret_required(self.credential_type);
     }
 
     pub fn toggle_password_visibility(&mut self) {

@@ -175,8 +175,12 @@ impl<'a> Widget for DetailView<'a> {
         }
 
         if let Some(ref secret) = self.detail.secret {
-            render_secret_field(buf, inner.x, &mut y, inner.width, secret, self.detail.secret_visible);
-            if self.detail.credential_type == CredentialType::Password { render_strength_field(buf, inner.x, &mut y, inner.width, secret); }
+            if !secret.is_empty() {
+                render_secret_field(buf, inner.x, &mut y, inner.width, secret, self.detail.secret_visible);
+                if self.detail.credential_type == CredentialType::Password {
+                    render_strength_field(buf, inner.x, &mut y, inner.width, secret);
+                }
+            }
         }
 
         if let (Some(code), Some(remaining)) = (&self.detail.totp_code, self.detail.totp_remaining) {
