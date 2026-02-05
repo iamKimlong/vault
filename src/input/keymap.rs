@@ -271,7 +271,7 @@ mod tests {
     fn test_ctrl_shortcuts() {
         assert_eq!(text_input_action(key_ctrl(KeyCode::Char('a'))), Action::CursorHome);
         assert_eq!(text_input_action(key_ctrl(KeyCode::Char('e'))), Action::CursorEnd);
-        assert_eq!(text_input_action(key_ctrl(KeyCode::Char('u'))), Action::ClearLine);
+        assert_eq!(text_input_action(key_ctrl(KeyCode::Char('u'))), Action::ClearToStart);
     }
 
     #[test]
