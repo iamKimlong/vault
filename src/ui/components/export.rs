@@ -377,7 +377,7 @@ fn render_passphrase_field(
         x,
         y,
         "Passphrase:",
-        &"•".repeat(dialog.passphrase_len()),
+        dialog.passphrase.content(),
         dialog.passphrase.cursor(),
         dialog.active_field == ExportField::Passphrase && passphrase_enabled,
         true,
@@ -481,7 +481,7 @@ fn render_select_field(
     
     fill_background(buf, value_x, y, value_width, bg_color);
 
-    let display = format!("{}  [Space/Ctrl+Space]", value);
+    let display = format!("{}  [⎵ / ^⎵]", value);
     let value_style = Style::default().fg(Color::Yellow).bg(bg_color);
     buf.set_string(value_x, y, &display, value_style);
 }
@@ -557,7 +557,7 @@ fn render_enabled_input(
     let visible = extract_visible_text(&display_value, scroll, value_width);
     let adjusted_cursor = cursor.saturating_sub(scroll);
 
-    let fg_color = if masked { Color::Green } else { Color::White };
+    let fg_color = if masked { Color::Green } else { Color::Blue };
     let value_style = Style::default().fg(fg_color).bg(bg_color);
     buf.set_string(x, y, &visible, value_style);
 

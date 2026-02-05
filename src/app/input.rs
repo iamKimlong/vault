@@ -149,8 +149,10 @@ fn handle_export_space(dialog: &mut crate::ui::components::export::ExportDialog)
 }
 
 fn handle_export_ctrl_space(dialog: &mut crate::ui::components::export::ExportDialog) {
-    if dialog.active_field == ExportField::Encryption {
-        dialog.cycle_encryption_backward();
+    match dialog.active_field {
+        ExportField::Format => dialog.cycle_format(),
+        ExportField::Encryption => dialog.cycle_encryption_backward(),
+        _ => {}
     }
 }
 
