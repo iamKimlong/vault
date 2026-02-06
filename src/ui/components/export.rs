@@ -422,7 +422,8 @@ fn calculate_form_area(area: Rect, has_error: bool) -> Rect {
     let content_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
     let form_width = 60u16.min(content_area.width.saturating_sub(4));
     let content_height = if has_error { 12u16 } else { 11u16 };
-    let form_height = content_height.min(content_area.height);
+    let remainder = (content_area.height.saturating_sub(content_height)) % 2;
+    let form_height = (content_height + remainder).min(content_area.height);
     let form_x = content_area.x + (content_area.width.saturating_sub(form_width)) / 2;
     let form_y = content_area.y + (content_area.height.saturating_sub(form_height)) / 2;
     Rect::new(form_x, form_y, form_width, form_height)

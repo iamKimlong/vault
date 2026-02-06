@@ -31,9 +31,11 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 /// Fixed sized layout
 pub fn centered_rect_fixed(width: u16, height: u16, r: Rect, unlocked: bool) -> Rect {
     let x = r.x + (r.width.saturating_sub(width)) / 2;
-    let y = r.y + (r.height.saturating_sub(height)) / 2;
-    let final_y = if unlocked { y.saturating_sub(1) } else { y };
-    Rect::new(x, final_y, width.min(r.width), height.min(r.height))
+    let available_height = if unlocked { r.height.saturating_sub(2) } else { r.height };
+    let remainder = (available_height.saturating_sub(height)) % 2;
+    let adjusted_height = height + remainder;
+    let y = r.y + (available_height.saturating_sub(adjusted_height)) / 2;
+    Rect::new(x, y, width.min(r.width), adjusted_height.min(r.height))
 }
 
 pub fn create_popup_block(title: &str, color: Color) -> Block<'_> {

@@ -24,10 +24,10 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Audit Trail:** Extensive HMAC-signed logs for tamper detection and activity records
 - **Auto-clear clipboard:** Automatically overwrite or wipe clipboard memory with 0-bytes (Zeroization) after 15 seconds
 - **Auto-lock:** Automatically lock vault after 3 minutes of inactivity
-- **Export:** Flexible credential export with multiple formats and encryption options
-    - **Plaintext:** Raw text or JSON (not recommended)
-    - **Encrypted (AES-256):** Text or JSON
-    - **Encrypted (ChaCha20-Poly1305):** Text or JSON
+- **Export:** Flexible credential export with format and encryption options
+    - **Formats:** JSON, Plain Text
+    - **Encryption:** None (not recommended), GPG (AES-256), age (ChaCha20-Poly1305)
+    - **Supports filtered export** when search or tag filters are active
 
 <a name="installation"></a>
 ## ⚡ Installation

@@ -116,10 +116,11 @@ impl App {
     }
 
     fn select_credential(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(cred) = &self.selected_credential {
-            let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
-            self.log_audit(AuditAction::Read, Some(&id), Some(&name), username.as_deref(), None)?;
-        }
+        let Some(cred) = &self.selected_credential else {
+            return Ok(());
+        };
+        let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
+        self.log_audit(AuditAction::Read, Some(&id), Some(&name), username.as_deref(), None)?;
         self.view = View::Detail;
         Ok(())
     }

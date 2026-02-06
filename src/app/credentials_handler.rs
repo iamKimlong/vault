@@ -210,11 +210,19 @@ impl App {
         let cred = crate::db::get_credential(db.conn(), id)?;
         crate::db::delete_credential(db.conn(), id)?;
         self.log_audit(AuditAction::Delete, Some(id), Some(&cred.name), cred.username.as_deref(), None)?;
+        
+        let viewing_deleted = self.view == View::Detail
+            && self.selected_credential.as_ref().is_some_and(|c| c.id == id);
+        if viewing_deleted {
+            self.view = View::List;
+        }
+        
         if let Some(query) = self.search_query.clone() {
             self.search_credentials(&query)?;
         } else {
             self.refresh_data()?;
         }
+        self.update_selected_detail()?;
         self.set_message("Credential deleted", MessageType::Success);
         Ok(())
     }
@@ -397,8 +405,14 @@ impl App {
     }
     
     fn finalize_export(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.log_audit(AuditAction::Export, None, None, None, Some("Exported credentials"))?;
-        self.set_message(&format!("Exported to {}", path), MessageType::Success);
+        let count = self.credentials.len();
+        let detail = if self.has_active_filters() {
+            format!("Exported {} credential(s) (filtered) to {}", count, path)
+        } else {
+            format!("Exported {} credential(s) to {}", count, path)
+        };
+        self.log_audit(AuditAction::Export, None, None, None, Some(&detail))?;
+        self.set_message(&detail, MessageType::Success);
         self.export_dialog = None;
         self.mode_state.to_normal();
         Ok(())
@@ -457,9 +471,4 @@ pub fn compute_totp(cred: &DecryptedCredential) -> (Option<String>, Option<u64>)
         Ok(code) => (Some(code), Some(totp::time_remaining(&totp_secret))),
         Err(_) => (None, None),
     }
-}
-
-fn parse_totp_secret(secret: &str, name: &str) -> TotpSecret {
-    serde_json::from_str::<TotpSecret>(secret)
-        .unwrap_or_else(|_| TotpSecret::new(secret.to_string(), name.to_string(), "Vault".to_string()))
 }
