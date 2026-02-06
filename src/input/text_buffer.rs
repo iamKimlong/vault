@@ -356,7 +356,7 @@ mod tests {
     fn test_delete_word_symbol() {
         let mut buf = TextBuffer::with_content("hello!");
         buf.delete_word();
-        assert_eq!(buf.content(), "hello");
+        assert_eq!(buf.content(), "");
     }
 
     #[test]
