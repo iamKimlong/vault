@@ -17,7 +17,7 @@ impl Default for AppConfig {
 
         Self {
             vault_path,
-            auto_lock_timeout: Duration::from_secs(300),
+            auto_lock_timeout: Duration::from_secs(180),
             clipboard_timeout: Duration::from_secs(15),
             password_visibility_timeout: Duration::from_secs(5),
         }

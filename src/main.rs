@@ -464,6 +464,8 @@ fn app_iteration(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std
 fn process_app_input(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std::error::Error>> {
     let Some(key) = poll_key_press()? else { return Ok(false) };
 
+    app.vault.update_activity();
+
     if app.handle_key_event(key)? {
         return Ok(true);
     }

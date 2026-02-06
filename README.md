@@ -23,7 +23,7 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Password Strength Checker:** Evaluates the security of user passwords in real-time, providing feedback on complexity, and length to help users create stronger, safer passwords.
 - **Audit Trail:** Extensive HMAC-signed logs for tamper detection and activity records
 - **Auto-clear clipboard:** Automatically overwrite or wipe clipboard memory with 0-bytes (Zeroization) after 15 seconds
-- **Auto-lock:** Automatically lock vault after 5 minutes regardless of activity
+- **Auto-lock:** Automatically lock vault after 3 minutes of inactivity
 - **Export:** Flexible credential export with multiple formats and encryption options
     - **Plaintext:** Raw text or JSON (not recommended)
     - **Encrypted (AES-256):** Text or JSON
@@ -154,7 +154,7 @@ vault
 - **Detects** if attacker modifies or deletes log entries
 
 ### Miscellaneous
-- **Auto-lock** after 5 minutes
+- **Auto-lock** after 3 minutes
 - **Auto-wipe clipboard** after 15 seconds with zeroization
 
 <a name="dependencies"></a>
