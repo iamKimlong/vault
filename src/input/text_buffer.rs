@@ -45,23 +45,29 @@ pub fn handle_text_key<T: TextEditing>(buf: &mut T, code: KeyCode, mods: KeyModi
 pub fn find_word_boundary_back(s: &str, from: usize) -> usize {
     let chars: Vec<char> = s.chars().take(from).collect();
     let mut pos = chars.len();
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let is_punct = |c: char| !c.is_whitespace() && !is_word(c);
 
     // Skip trailing whitespace
     while pos > 0 && chars[pos - 1].is_whitespace() {
         pos -= 1;
     }
+    if pos == 0 { return 0; }
 
-    // Delete word chars (alphanumeric + underscore), stop at symbols
-    let start_pos = pos;
-    while pos > 0 && (chars[pos - 1].is_alphanumeric() || chars[pos - 1] == '_') {
-        pos -= 1;
+    if is_word(chars[pos - 1]) {
+        // Delete word chars only
+        while pos > 0 && is_word(chars[pos - 1]) {
+            pos -= 1;
+        }
+    } else {
+        // Delete punctuation, then preceding word chars
+        while pos > 0 && is_punct(chars[pos - 1]) {
+            pos -= 1;
+        }
+        while pos > 0 && is_word(chars[pos - 1]) {
+            pos -= 1;
+        }
     }
-
-    // If no word chars deleted (at a symbol), delete single char
-    if pos == start_pos && pos > 0 {
-        pos -= 1;
-    }
-
     pos
 }
 
