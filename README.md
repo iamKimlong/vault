@@ -6,7 +6,7 @@
 
 Self-hosted, local-first architecture - your credentials never touch our servers.
 
-![image](https://github.com/user-attachments/assets/7788663b-51bb-4123-9e3e-1631bead2dda)
+![image](https://github.com/user-attachments/assets/cf234cc6-3612-4b8a-b1d6-d5a551e16cd4)
 
 <a name="features"></a>
 ## ✨ Features
