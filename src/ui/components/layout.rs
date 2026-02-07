@@ -2,7 +2,7 @@
 
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Style},
     widgets::{Widget, Block, BorderType, Borders, Paragraph},
 };
@@ -54,12 +54,6 @@ pub fn render_separator_line(buf: &mut Buffer, x: u16, y: u16, width: u16) {
     }
 }
 
-pub fn render_footer(buf: &mut Buffer, popup: Rect, text: &str) {
-    let y = popup.y + popup.height - 1;
-    let x = popup.x + (popup.width.saturating_sub(text.len() as u16)) / 2;
-    buf.set_string(x, y, text, Style::default().fg(Color::DarkGray));
-}
-
 pub fn highlight_row(buf: &mut Buffer, x: u16, y: u16, width: u16) {
     for px in x..x + width {
         if let Some(cell) = buf.cell_mut((px, y)) {
@@ -75,6 +69,7 @@ pub fn truncate_with_ellipsis(s: &str, max_len: usize) -> String {
     format!("{}…", &s[..max_len.saturating_sub(1)])
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_text_at_virtual_x(
     buf: &mut Buffer,
     base_x: u16,

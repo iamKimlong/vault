@@ -133,6 +133,7 @@ fn run_init(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+#[derive(Default)]
 struct InitState {
     password: SecureTextBuffer,
     confirm: SecureTextBuffer,
@@ -141,17 +142,6 @@ struct InitState {
     done: bool,
 }
 
-impl Default for InitState {
-    fn default() -> Self {
-        Self {
-            password: SecureTextBuffer::new(),
-            confirm: SecureTextBuffer::new(),
-            confirming: false,
-            error: None,
-            done: false,
-        }
-    }
-}
 
 fn init_iteration(terminal: &mut Term, app: &mut App, state: &mut InitState) -> Result<(), Box<dyn std::error::Error>> {
     let (title, prompt, field) = init_dialog_params(state.confirming, &state.password, &state.confirm);
@@ -237,6 +227,7 @@ fn run_unlock(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
+#[derive(Default)]
 struct UnlockState {
     password: SecureTextBuffer,
     error: Option<String>,
@@ -244,16 +235,6 @@ struct UnlockState {
     done: bool,
 }
 
-impl Default for UnlockState {
-    fn default() -> Self {
-        Self {
-            password: SecureTextBuffer::new(),
-            error: None,
-            attempts: 0,
-            done: false,
-        }
-    }
-}
 
 fn unlock_iteration(terminal: &mut Term, app: &mut App, state: &mut UnlockState) -> Result<(), Box<dyn std::error::Error>> {
     draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
@@ -296,6 +277,7 @@ fn process_unlock_attempt(state: &mut UnlockState, app: &mut App) {
     }
 }
 
+#[derive(Default)]
 struct PasswordChangeState {
     current: SecureTextBuffer,
     new_pass: SecureTextBuffer,
@@ -304,17 +286,6 @@ struct PasswordChangeState {
     error: Option<String>,
 }
 
-impl Default for PasswordChangeState {
-    fn default() -> Self {
-        Self {
-            current: SecureTextBuffer::new(),
-            new_pass: SecureTextBuffer::new(),
-            confirm: SecureTextBuffer::new(),
-            step: 0,
-            error: None,
-        }
-    }
-}
 
 fn change_current_field(state: &mut PasswordChangeState) -> &mut SecureTextBuffer {
     match state.step {

@@ -6,7 +6,6 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    text::{Line, Span},
     widgets::{Block, Borders, BorderType, Clear, Widget},
 };
 
@@ -150,6 +149,19 @@ fn trim_to_option(val: &str) -> Option<String> {
     }
 }
 
+pub struct EditFormParams {
+    pub id: String,
+    pub name: String,
+    pub cred_type: CredentialType,
+    pub username: Option<String>,
+    pub secret: String,
+    pub url: Option<String>,
+    pub tags: Vec<String>,
+    pub totp_secret: Option<String>,
+    pub notes: Option<String>,
+    pub previous_view: View,
+}
+
 impl CredentialForm {
     pub fn new() -> Self {
         Self {
@@ -165,32 +177,21 @@ impl CredentialForm {
         }
     }
 
-    pub fn for_edit(
-        id: String,
-        name: String,
-        cred_type: CredentialType,
-        username: Option<String>,
-        secret: String,
-        url: Option<String>,
-        tags: Vec<String>,
-        totp_secret: Option<String>,
-        notes: Option<String>,
-        previous_view: View,
-    ) -> Self {
+    pub fn for_edit(params: EditFormParams) -> Self {
         let mut form = Self::new();
-        form.editing_id = Some(id);
-        form.credential_type = cred_type;
-        form.previous_view = previous_view;
+        form.editing_id = Some(params.id);
+        form.credential_type = params.cred_type;
+        form.previous_view = params.previous_view;
 
-        form.fields[0].value = name;
-        form.fields[1].value = cred_type.display_name().to_string();
-        form.fields[2].value = username.unwrap_or_default();
-        form.fields[3].value = secret;
-        form.fields[3].required = is_secret_required(cred_type);
-        form.fields[4].value = url.unwrap_or_default();
-        form.fields[5].value = tags.join(" ");
-        form.fields[6].value = totp_secret.unwrap_or_default();
-        form.fields[7].value = notes.unwrap_or_default();
+        form.fields[0].value = params.name;
+        form.fields[1].value = params.cred_type.display_name().to_string();
+        form.fields[2].value = params.username.unwrap_or_default();
+        form.fields[3].value = params.secret;
+        form.fields[3].required = is_secret_required(params.cred_type);
+        form.fields[4].value = params.url.unwrap_or_default();
+        form.fields[5].value = params.tags.join(" ");
+        form.fields[6].value = params.totp_secret.unwrap_or_default();
+        form.fields[7].value = params.notes.unwrap_or_default();
 
         form
     }
@@ -201,10 +202,6 @@ impl CredentialForm {
 
     pub fn active_field(&self) -> &FormField {
         &self.fields[self.active_field]
-    }
-
-    pub fn active_field_mut(&mut self) -> &mut FormField {
-        &mut self.fields[self.active_field]
     }
 
     fn ensure_visible(&mut self, total_height: u16) {
@@ -468,8 +465,8 @@ fn field_row_height(field: &FormField, _value_width: usize) -> u16 {
 fn count_visible_fields(fields: &[FormField], offset: usize, height: u16, value_width: usize) -> usize {
     let mut budget = height;
     let mut count = 0;
-    for i in offset..fields.len() {
-        let h = field_row_height(&fields[i], value_width) + 1;
+    for field in fields.iter().skip(offset) {
+        let h = field_row_height(field, value_width) + 1;
         if budget < h { break; }
         budget -= h;
         count += 1;
@@ -615,11 +612,10 @@ fn render_multiline_field(
         if (cursor_row as u16) < visible_lines {
             let cx = x + cursor_in_line as u16;
             let cy = y + cursor_row as u16;
-            if cx < x + width {
-                if let Some(cell) = buf.cell_mut((cx, cy)) {
+            if cx < x + width
+                && let Some(cell) = buf.cell_mut((cx, cy)) {
                     cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
                 }
-            }
         }
     }
 

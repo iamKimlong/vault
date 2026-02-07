@@ -14,10 +14,6 @@ pub struct ScrollState {
 }
 
 impl ScrollState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn reset(&mut self) {
         self.v_scroll = 0;
         self.h_scroll = 0;

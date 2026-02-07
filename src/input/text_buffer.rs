@@ -6,6 +6,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use zeroize::Zeroizing;
 
 /// Trait for text editing operations
+#[allow(dead_code)]
 pub trait TextEditing {
     fn content(&self) -> &str;
     fn cursor(&self) -> usize;

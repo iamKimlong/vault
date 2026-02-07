@@ -8,7 +8,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget, Wrap},
 };
 
-use super::input_field::InputField;
 use super::layout::{centered_rect_fixed, create_popup_block};
 
 pub struct ConfirmDialog<'a> {
@@ -144,11 +143,10 @@ impl Widget for PasswordDialog<'_> {
         buf.set_string(inner.x, value_y, &visible, Style::default().fg(Color::Yellow).bg(Color::DarkGray));
 
         let cursor_x = inner.x + adjusted_cursor as u16;
-        if cursor_x < inner.x + inner.width {
-            if let Some(cell) = buf.cell_mut((cursor_x, value_y)) {
+        if cursor_x < inner.x + inner.width
+            && let Some(cell) = buf.cell_mut((cursor_x, value_y)) {
                 cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
             }
-        }
 
         if let Some(err) = self.error {
             buf.set_string(inner.x, inner.y + 3, err, Style::default().fg(Color::Red));

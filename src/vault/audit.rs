@@ -69,6 +69,7 @@ pub fn get_recent_logs(conn: &rusqlite::Connection, limit: usize) -> VaultResult
 }
 
 /// Get audit logs for a specific credential
+#[allow(dead_code)]
 pub fn get_credential_logs(conn: &rusqlite::Connection, credential_id: &str) -> VaultResult<Vec<AuditLog>> {
     Ok(db::get_credential_audit_logs(conn, credential_id)?)
 }

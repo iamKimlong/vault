@@ -177,14 +177,13 @@ impl<'a> Widget for DetailView<'a> {
             render_username_field(buf, inner.x, &mut y, inner.width, username);
         }
 
-        if let Some(ref secret) = self.detail.secret {
-            if !secret.is_empty() {
+        if let Some(ref secret) = self.detail.secret
+            && !secret.is_empty() {
                 render_secret_field(buf, inner.x, &mut y, inner.width, secret, self.detail.secret_visible);
                 if self.detail.credential_type == CredentialType::Password {
                     render_strength_field(buf, inner.x, &mut y, inner.width, secret);
                 }
             }
-        }
 
         if let (Some(code), Some(remaining)) = (&self.detail.totp_code, self.detail.totp_remaining) {
             render_totp_field(buf, inner.x, &mut y, inner.width, code, remaining);
@@ -205,91 +204,5 @@ impl<'a> Widget for DetailView<'a> {
         }
 
         render_timestamps(buf, &inner, y, &self.detail.created_at, &self.detail.updated_at);
-    }
-}
-
-pub struct PasswordStrength {
-    strength: u32,
-}
-
-impl PasswordStrength {
-    pub fn new(password: &str) -> Self {
-        Self {
-            strength: crate::crypto::password_strength(password),
-        }
-    }
-}
-
-fn render_strength_bar(buf: &mut Buffer, area: Rect, filled: u16, color: Color) {
-    for x in area.x..area.x + area.width {
-        let style = if x < area.x + filled {
-            Style::default().bg(color)
-        } else {
-            Style::default().bg(Color::DarkGray)
-        };
-        if let Some(cell) = buf.cell_mut((x, area.y)) {
-            cell.set_style(style);
-        }
-    }
-}
-
-impl Widget for PasswordStrength {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let filled = (self.strength as f32 / 100.0 * area.width as f32) as u16;
-        let color = strength_color(self.strength);
-
-        render_strength_bar(buf, area, filled, color);
-
-        let label = crate::crypto::strength_label(self.strength);
-        let label_x = area.x + (area.width.saturating_sub(label.len() as u16)) / 2;
-        buf.set_string(label_x, area.y, label, Style::default().fg(Color::White));
-    }
-}
-
-pub struct TotpDisplay<'a> {
-    code: &'a str,
-    remaining: u64,
-    period: u64,
-}
-
-impl<'a> TotpDisplay<'a> {
-    pub fn new(code: &'a str, remaining: u64, period: u64) -> Self {
-        Self { code, remaining, period }
-    }
-}
-
-fn render_countdown_bar(buf: &mut Buffer, area: Rect, remaining: u64, period: u64) {
-    let bar_y = area.y + 1;
-    let filled = (remaining as f32 / period as f32 * area.width as f32) as u16;
-    let color = if remaining <= 5 { Color::Red } else { Color::Green };
-
-    for x in area.x..area.x + area.width {
-        let style = if x < area.x + filled {
-            Style::default().bg(color)
-        } else {
-            Style::default().bg(Color::DarkGray)
-        };
-        if let Some(cell) = buf.cell_mut((x, bar_y)) {
-            cell.set_style(style);
-        }
-    }
-}
-
-impl<'a> Widget for TotpDisplay<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        buf.set_string(
-            area.x,
-            area.y,
-            self.code,
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
-        );
-
-        if area.height > 1 {
-            render_countdown_bar(buf, area, self.remaining, self.period);
-        }
-
-        let time_str = format!("{}s", self.remaining);
-        let time_x = area.x + area.width.saturating_sub(time_str.len() as u16);
-        buf.set_string(time_x, area.y, &time_str, Style::default().fg(Color::DarkGray));
     }
 }

@@ -8,7 +8,6 @@ pub mod list;
 pub mod statusline;
 pub mod dialogs;
 pub mod help;
-pub mod input_field;
 pub mod layout;
 pub mod logs;
 pub mod scroll;

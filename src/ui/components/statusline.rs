@@ -16,6 +16,7 @@ use crate::input::InputMode;
 pub enum MessageType {
     Info,
     Success,
+    #[allow(dead_code)]
     Warning,
     Error,
 }
@@ -35,7 +36,6 @@ pub struct StatusLine<'a> {
     mode: InputMode,
     command_buffer: Option<&'a str>,
     message: Option<(&'a str, MessageType)>,
-    vault_name: Option<&'a str>,
     item_count: Option<(usize, usize)>,
     search_query: Option<&'a str>,
     filter_tags: Option<&'a [String]>,
@@ -47,7 +47,6 @@ impl<'a> StatusLine<'a> {
             mode,
             command_buffer: None,
             message: None,
-            vault_name: None,
             item_count: None,
             search_query: None,
             filter_tags: None,
@@ -61,11 +60,6 @@ impl<'a> StatusLine<'a> {
 
     pub fn message(mut self, msg: &'a str, msg_type: MessageType) -> Self {
         self.message = Some((msg, msg_type));
-        self
-    }
-
-    pub fn vault_name(mut self, name: &'a str) -> Self {
-        self.vault_name = Some(name);
         self
     }
 
@@ -136,35 +130,12 @@ fn render_command_or_message(
     }
 }
 
-fn build_right_text(
-    search_query: Option<&str>,
-    item_count: Option<(usize, usize)>,
-    vault_name: Option<&str>,
-) -> String {
-    let mut right_parts: Vec<String> = Vec::new();
-
-    if let Some(query) = search_query {
-        right_parts.push(format!("/{}", query));
-    }
-
-    if let Some((selected, total)) = item_count {
-        right_parts.push(format!("{}/{}", selected + 1, total));
-    }
-
-    if let Some(vault) = vault_name {
-        right_parts.push(vault.to_string());
-    }
-
-    right_parts.join(" ")
-}
-
 fn render_right_section(
     buf: &mut Buffer,
     area: Rect,
     search_query: Option<&str>,
     filter_tags: Option<&[String]>,
     item_count: Option<(usize, usize)>,
-    vault_name: Option<&str>,
 ) {
     let mut spans: Vec<Span> = Vec::new();
     let sep = Span::styled(" | ", Style::default().fg(Color::White)); // opts: |, │
@@ -198,11 +169,6 @@ fn render_right_section(
         ));
     }
     
-    if let Some(vault) = vault_name {
-        if !spans.is_empty() { spans.push(sep); }
-        spans.push(Span::styled(vault, Style::default().fg(Color::Gray).bg(Color::DarkGray)));
-    }
-    
     let line = Line::from(spans);
     let width = line.width() as u16;
     let x = area.x + area.width.saturating_sub(width + 1);
@@ -221,7 +187,7 @@ impl<'a> Widget for StatusLine<'a> {
 
         render_command_or_message(buf, x, area.y, self.mode, self.command_buffer, self.message);
 
-        render_right_section(buf, area, self.search_query, self.filter_tags, self.item_count, self.vault_name);
+        render_right_section(buf, area, self.search_query, self.filter_tags, self.item_count);
     }
 }
 
@@ -230,10 +196,6 @@ pub struct HelpBar<'a> {
 }
 
 impl<'a> HelpBar<'a> {
-    pub fn new(hints: Vec<(&'a str, &'a str)>) -> Self {
-        Self { hints }
-    }
-
     pub fn for_mode(mode: InputMode) -> Self {
         Self { hints: hints_for_mode(mode) }
     }

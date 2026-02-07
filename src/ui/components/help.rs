@@ -257,9 +257,11 @@ fn render_help_line_scrollable(
     }
 }
 
+type HelpSection<'a> = Vec<(&'a str, Vec<(&'a str, &'a str)>)>;
+
 fn split_sections_for_columns<'a>(
     sections: &'a [(&'a str, Vec<(&'a str, &'a str)>)],
-) -> (Vec<(&'a str, Vec<(&'a str, &'a str)>)>, Vec<(&'a str, Vec<(&'a str, &'a str)>)>) {
+) -> (HelpSection<'a>, HelpSection<'a>) {
     let total_lines: usize = sections.iter().map(|(_, b)| 1 + b.len() + 1).sum();
     let target = total_lines / 2;
 

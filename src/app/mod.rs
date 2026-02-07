@@ -240,13 +240,12 @@ impl App {
     }
 
     pub fn check_password_timeout(&mut self) {
-        if let Some(hide_at) = self.password_hide_at {
-            if Instant::now() >= hide_at {
+        if let Some(hide_at) = self.password_hide_at
+            && Instant::now() >= hide_at {
                 self.password_visible = false;
                 self.password_hide_at = None;
                 let _ = self.update_selected_detail();
             }
-        }
     }
 
     pub fn should_auto_lock(&self) -> bool {

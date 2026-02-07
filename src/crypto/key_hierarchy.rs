@@ -23,11 +23,6 @@ impl DerivedKey {
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.key
     }
-
-    /// Convert to MasterKey for encryption operations
-    pub fn to_master_key(&self) -> MasterKey {
-        MasterKey::from_bytes(*self.key)
-    }
 }
 
 // Debug impl that doesn't leak key material
@@ -102,28 +97,10 @@ impl KeyHierarchy {
         &self.dek
     }
 
-    /// Get reference to master key
-    pub fn master_key(&self) -> &MasterKey {
-        &self.master_key
-    }
-
-    /// Derive a credential-level key
-    pub fn derive_credential_key(&self, credential_id: &str) -> CryptoResult<DerivedKey> {
-        derive_key(self.dek.as_bytes(), "credential", credential_id)
-    }
-
     /// Derive a key for audit log HMAC
     pub fn derive_audit_key(&self) -> CryptoResult<DerivedKey> {
         derive_key(self.dek.as_bytes(), "audit", "log")
     }
-}
-
-/// Derive a credential key directly (convenience function)
-pub fn derive_credential_key(
-    dek: &DataEncryptionKey,
-    credential_id: &str,
-) -> CryptoResult<DerivedKey> {
-    derive_key(dek.as_bytes(), "credential", credential_id)
 }
 
 /// Core HKDF key derivation
@@ -199,41 +176,5 @@ mod tests {
         // Should be able to restore with new password
         let restored = KeyHierarchy::from_wrapped_dek(new_master_key, new_wrapped_dek).unwrap();
         assert_eq!(&original_dek, restored.dek().as_bytes());
-    }
-
-    #[test]
-    fn test_credential_key_derivation() {
-        let hierarchy = KeyHierarchy::new(test_master_key()).unwrap();
-
-        let key1 = hierarchy.derive_credential_key("cred-1").unwrap();
-        let key2 = hierarchy.derive_credential_key("cred-2").unwrap();
-
-        // Different credentials have different keys
-        assert_ne!(key1.as_bytes(), key2.as_bytes());
-
-        // Same credential should derive same key
-        let key1_again = hierarchy.derive_credential_key("cred-1").unwrap();
-        assert_eq!(key1.as_bytes(), key1_again.as_bytes());
-    }
-
-    #[test]
-    fn test_deterministic_derivation_after_password_change() {
-        let params = KdfParams::testing();
-
-        // Create initial hierarchy
-        let (master_key1, _) = derive_master_key(b"password1", &params).unwrap();
-        let mut hierarchy = KeyHierarchy::new(master_key1).unwrap();
-
-        // Derive some keys
-        let cred_key_before = hierarchy.derive_credential_key("cred-1").unwrap();
-
-        // Change password
-        let (master_key2, _) = derive_master_key(b"password2", &params).unwrap();
-        hierarchy.change_master_key(master_key2).unwrap();
-
-        // Derived keys should be identical (DEK unchanged)
-        let cred_key_after = hierarchy.derive_credential_key("cred-1").unwrap();
-
-        assert_eq!(cred_key_before.as_bytes(), cred_key_after.as_bytes());
     }
 }

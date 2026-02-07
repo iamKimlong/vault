@@ -9,7 +9,8 @@ use crate::ui::{
         CredentialDetail,
         CredentialForm,
         CredentialItem,
-        MessageType
+        MessageType,
+        form::EditFormParams
     },
     renderer::View
 };
@@ -32,8 +33,8 @@ impl App {
             _ => crate::vault::search::get_all(db.conn())?,
         };
         
-        if let Some(ref query) = self.search_query {
-            if !query.is_empty() {
+        if let Some(ref query) = self.search_query
+            && !query.is_empty() {
                 let query_lower = query.to_lowercase();
                 results.retain(|c| {
                     c.name.to_lowercase().contains(&query_lower)
@@ -41,10 +42,9 @@ impl App {
                         || c.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
                 });
             }
-        }
         
         self.credentials = results;
-        self.credential_items = self.credentials.iter().map(|c| credential_to_item(c)).collect();
+        self.credential_items = self.credentials.iter().map(credential_to_item).collect();
         self.list_state.set_total(self.credential_items.len());
         Ok(())
     }
@@ -98,7 +98,7 @@ impl App {
     pub fn new_credential(&mut self) {
         self.credential_form = Some(CredentialForm::new());
         self.view = View::Form;
-        self.mode_state.to_insert();
+        self.mode_state.enter_insert_mode();
     }
 
     pub fn edit_credential(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -122,26 +122,26 @@ impl App {
     }
 
     fn open_edit_form(&mut self, cred: &DecryptedCredential) {
-        let form = CredentialForm::for_edit(
-            cred.id.clone(),
-            cred.name.clone(),
-            cred.credential_type,
-            cred.username.clone(),
-            cred.secret.as_ref().map(|s| s.expose_secret().to_string()).unwrap_or_default(),
-            cred.url.clone(),
-            cred.tags.clone(),
-            cred.totp_secret.as_ref().map(|s| s.expose_secret().to_string()),
-            cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
-            self.view.clone(),
-        );
+        let form = CredentialForm::for_edit(EditFormParams {
+            id: cred.id.clone(),
+            name: cred.name.clone(),
+            cred_type: cred.credential_type,
+            username: cred.username.clone(),
+            secret: cred.secret.as_ref().map(|s| s.expose_secret().to_string()).unwrap_or_default(),
+            url: cred.url.clone(),
+            tags: cred.tags.clone(),
+            totp_secret: cred.totp_secret.as_ref().map(|s| s.expose_secret().to_string()),
+            notes: cred.notes.as_ref().map(|s| s.expose_secret().to_string()),
+            previous_view: self.view,
+        });
         self.credential_form = Some(form);
         self.view = View::Form;
-        self.mode_state.to_insert();
+        self.mode_state.enter_insert_mode();
     }
 
     pub fn save_credential_form(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let form = self.credential_form.take().unwrap();
-        let return_to = form.previous_view.clone();
+        let return_to = form.previous_view;
         let editing_id = form.editing_id.clone();
 
         match editing_id {
@@ -150,7 +150,7 @@ impl App {
         }
 
         self.view = return_to;
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
         
         if let Some(query) = self.search_query.clone() {
             self.search_credentials(&query)?;
@@ -343,7 +343,7 @@ impl App {
             return Ok(());
         }
         self.export_dialog = Some(ExportDialog::new());
-        self.mode_state.to_export();
+        self.mode_state.enter_export_mode();
         Ok(())
     }
 
@@ -402,7 +402,7 @@ impl App {
         dialog: &ExportDialog,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let passphrase_opt = dialog.get_passphrase();
-        let passphrase = passphrase_opt.as_ref().map(|s| s.expose_secret().as_ref());
+        let passphrase = passphrase_opt.as_ref().map(|s| s.expose_secret());
         export_to_file(data, dialog.format, dialog.encryption, passphrase, Path::new(dialog.path.content()))?;
         Ok(())
     }
@@ -417,13 +417,13 @@ impl App {
         self.log_audit(AuditAction::Export, None, None, None, Some(&detail))?;
         self.set_message(&detail, MessageType::Success);
         self.export_dialog = None;
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
         Ok(())
     }
     
     pub fn cancel_export(&mut self) {
         self.export_dialog = None;
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
     }
 }
 
@@ -433,7 +433,6 @@ pub fn credential_to_item(cred: &Credential) -> CredentialItem {
         name: cred.name.clone(),
         username: cred.username.clone(),
         credential_type: cred.credential_type,
-        tags: cred.tags.clone(),
     }
 }
 

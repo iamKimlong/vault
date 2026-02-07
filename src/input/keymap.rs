@@ -44,7 +44,6 @@ pub enum Action {
     // Commands
     ExecuteCommand(String),
     Search(String),
-    FilterByTag(String),
     GeneratePassword,
     ChangePassword,
     VerifyAudit,
@@ -72,20 +71,11 @@ pub enum Action {
     CursorRight,
     CursorHome,
     CursorEnd,
-    ClearLine,
     Submit,
 
     // No action
     None,
     Invalid(String),
-}
-
-/// Pending key state for multi-key sequences
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PendingKey {
-    G,  // waiting for second 'g' for gg
-    D,  // waiting for second 'd' for dd
-    Y,  // waiting for second key for yank
 }
 
 /// Map key event to action in normal mode
@@ -179,16 +169,6 @@ pub fn confirm_action(key: KeyEvent) -> Action {
     }
 }
 
-/// Map key event to action in help mode
-pub fn help_action(key: KeyEvent) -> Action {
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => Action::Back,
-        KeyCode::Char('j') | KeyCode::Down => Action::MoveDown,
-        KeyCode::Char('k') | KeyCode::Up => Action::MoveUp,
-        _ => Action::None,
-    }
-}
-
 /// Parse command string into action
 pub fn parse_command(cmd: &str) -> Action {
     let cmd = cmd.trim();
@@ -271,7 +251,6 @@ mod tests {
     fn test_ctrl_shortcuts() {
         assert_eq!(text_input_action(key_ctrl(KeyCode::Char('a'))), Action::CursorHome);
         assert_eq!(text_input_action(key_ctrl(KeyCode::Char('e'))), Action::CursorEnd);
-        assert_eq!(text_input_action(key_ctrl(KeyCode::Char('u'))), Action::ClearToStart);
     }
 
     #[test]

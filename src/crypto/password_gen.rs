@@ -40,6 +40,7 @@ impl Default for PasswordPolicy {
 
 impl PasswordPolicy {
     /// Create a policy for PIN-style passwords
+    #[allow(dead_code)]
     pub fn pin(length: usize) -> Self {
         Self {
             length,
@@ -53,6 +54,7 @@ impl PasswordPolicy {
     }
 
     /// Create a policy for passphrase-friendly passwords
+    #[allow(dead_code)]
     pub fn readable(length: usize) -> Self {
         Self {
             length,
@@ -72,6 +74,7 @@ impl PasswordPolicy {
     /// effective entropy for symmetric cryptography.
     ///
     /// Note: This is forward-looking; current threat models don't require this.
+    #[allow(dead_code)]
     pub fn quantum_resistant() -> Self {
         Self {
             length: 40,
@@ -92,6 +95,7 @@ const SYMBOLS: &str = "!@#$%^&*()-_=+[]{}|;:,.<>?";
 const AMBIGUOUS: &str = "0O1lI|";
 
 // Word list for passphrase generation (EFF short wordlist subset)
+#[allow(dead_code)]
 const WORDLIST: &[&str] = &[
     "acid", "acorn", "acre", "acts", "afar", "affix", "aged", "agent", "agile", "aging",
     "agony", "ahead", "aide", "aids", "aim", "ajar", "alarm", "album", "alert", "alike",
@@ -179,9 +183,7 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
 
     if policy.symbols {
         let base_symbols = policy
-            .custom_symbols
-            .as_ref()
-            .map(|s| s.as_str())
+            .custom_symbols.as_deref()
             .unwrap_or(SYMBOLS);
         // Apply ambiguous filter to custom symbols too
         let chars = filter_ambiguous(base_symbols, policy.exclude_ambiguous);
@@ -214,12 +216,8 @@ pub fn generate_password(policy: &PasswordPolicy) -> Result<String, PasswordErro
 }
 
 /// Generate a passphrase from random words.
-///
 /// Uses `OsRng` for cryptographically secure randomness.
-///
-/// # Arguments
-/// * `word_count` - Number of words in the passphrase
-/// * `separator` - String to place between words
+#[allow(dead_code)]
 pub fn generate_passphrase(word_count: usize, separator: &str) -> String {
     let mut rng = OsRng;
     let words: Vec<&str> = WORDLIST
@@ -260,7 +258,7 @@ pub fn password_strength(password: &str) -> u32 {
     if password.chars().any(|c| !c.is_alphanumeric() && c.is_ascii()) {
         charset_size += 32;
     }
-    if password.chars().any(|c| !c.is_ascii()) {
+    if !password.is_ascii() {
         charset_size += 100;
     }
 

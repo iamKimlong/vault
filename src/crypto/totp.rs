@@ -104,11 +104,6 @@ impl TotpSecret {
         Ok(totp.get_url())
     }
 
-    /// Get the raw base32 secret for display/export
-    pub fn raw_secret(&self) -> &str {
-        &self.secret
-    }
-
     fn build_totp(&self) -> CryptoResult<TOTP> {
         let secret_bytes = self.decode_secret()?;
         

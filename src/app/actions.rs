@@ -37,12 +37,11 @@ impl App {
             Action::New => self.new_credential(),
             Action::Edit => self.edit_credential()?,
 
-            Action::EnterCommand => self.mode_state.to_command(),
-            Action::EnterSearch => self.mode_state.to_search(),
+            Action::EnterCommand => self.mode_state.enter_command_mode(),
+            Action::EnterSearch => self.mode_state.enter_search_mode(),
 
             Action::ExecuteCommand(cmd) => return self.execute_action(parse_command(&cmd)),
             Action::Search(query) => self.search_credentials(&query)?,
-            Action::FilterByTag(tag) => self.filter_by_tag(&[tag])?,
 
             Action::GeneratePassword => self.generate_and_copy_password()?,
 
@@ -82,7 +81,7 @@ impl App {
     fn show_help(&mut self) {
         self.help_state.home();
         self.help_state.scroll.pending_g = false;
-        self.mode_state.to_help();
+        self.mode_state.enter_help_mode();
     }
 
     fn show_tags(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -92,7 +91,7 @@ impl App {
         }
         self.load_tags()?;
         self.tags_state.scroll.pending_g = false;
-        self.mode_state.to_tags();
+        self.mode_state.enter_tags_mode();
         Ok(())
     }
 
@@ -103,7 +102,7 @@ impl App {
         }
         self.load_audit_logs()?;
         self.logs_state.scroll.pending_g = false;
-        self.mode_state.to_logs();
+        self.mode_state.enter_logs_mode();
         Ok(())
     }
 
@@ -159,17 +158,17 @@ impl App {
         let Some(item) = self.credential_items.get(idx) else { return };
 
         self.pending_action = Some(PendingAction::DeleteCredential(item.id.clone()));
-        self.mode_state.to_confirm();
+        self.mode_state.enter_confirm_mode();
     }
 
     fn cancel_pending(&mut self) {
         self.pending_action = None;
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
     }
 
     fn handle_confirm(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let Some(action) = self.pending_action.take() else {
-            self.mode_state.to_normal();
+            self.mode_state.enter_normal_mode();
             return Ok(());
         };
 
@@ -177,7 +176,7 @@ impl App {
             PendingAction::DeleteCredential(id) => self.delete_credential(&id)?,
         }
 
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
         Ok(())
     }
 

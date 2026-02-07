@@ -113,32 +113,12 @@ pub fn get_credentials_by_tag(conn: &Connection, tags: &[String]) -> DbResult<Ve
     Ok(credentials)
 }
 
-/// Get all unique tags with counts
-pub fn get_all_tags_with_counts(conn: &Connection) -> DbResult<Vec<(String, usize)>> {
-    use std::collections::HashMap;
-    
-    let credentials = get_all_credentials(conn)?;
-    let mut tag_counts: HashMap<String, usize> = HashMap::new();
-    
-    for cred in credentials {
-        for tag in cred.tags {
-            *tag_counts.entry(tag).or_insert(0) += 1;
-        }
-    }
-    
-    let mut tags: Vec<_> = tag_counts.into_iter().collect();
-    tags.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    
-    Ok(tags)
-}
-
 /// Search credentials using FTS5
 pub fn search_credentials(conn: &Connection, query: &str) -> DbResult<Vec<Credential>> {
     // Escape special FTS5 characters
     let escaped_query = query
         .replace('"', "\"\"")
-        .replace('*', "")
-        .replace(':', "");
+        .replace(['*', ':'], "");
 
     if escaped_query.trim().is_empty() {
         return get_all_credentials(conn);

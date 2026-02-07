@@ -72,10 +72,6 @@ impl TagsState {
         self.selected = self.tags.len().saturating_sub(1);
     }
 
-    pub fn selected_tag(&self) -> Option<&str> {
-        self.tags.get(self.selected).map(|(t, _)| t.as_str())
-    }
-
     pub fn toggle_selected(&mut self) {
         let Some((tag, _)) = self.tags.get(self.selected) else { return };
         if self.selected_tags.contains(tag) {
@@ -87,14 +83,6 @@ impl TagsState {
 
     pub fn get_selected_tags(&self) -> Vec<String> {
         self.selected_tags.iter().cloned().collect()
-    }
-
-    pub fn has_selection(&self) -> bool {
-        !self.selected_tags.is_empty()
-    }
-
-    pub fn max_scroll(&self, visible_height: u16) -> usize {
-        self.tags.len().saturating_sub(visible_height as usize)
     }
 }
 
@@ -238,5 +226,5 @@ fn render_tag_name(buf: &mut Buffer, x: u16, y: u16, inner_width: u16, tag: &str
 fn render_tag_count(buf: &mut Buffer, x: u16, y: u16, count: usize, highlight: bool) {
     let style = Style::default().fg(Color::Cyan);
     let style = if highlight { style.bg(Color::DarkGray) } else { style };
-    buf.set_string(x, y, &format!("{:>5}", count), style);
+    buf.set_string(x, y, format!("{:>5}", count), style);
 }

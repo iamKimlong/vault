@@ -10,6 +10,7 @@ pub fn get_all(conn: &rusqlite::Connection) -> VaultResult<Vec<Credential>> {
     db::get_all_credentials(conn).map_err(Into::into)
 }
 
+#[allow(dead_code)]
 pub fn search_credentials(conn: &rusqlite::Connection, query: &str) -> VaultResult<Vec<Credential>> {
     let trimmed = query.trim();
     if trimmed.is_empty() {

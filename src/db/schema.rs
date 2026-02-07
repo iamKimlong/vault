@@ -7,6 +7,7 @@ use rusqlite::Connection;
 use super::DbResult;
 
 /// Current schema version
+#[allow(dead_code)]
 pub const SCHEMA_VERSION: i32 = 3;
 
 /// Initialize the database schema

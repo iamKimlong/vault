@@ -19,29 +19,16 @@ pub struct CredentialItem {
     pub name: String,
     pub username: Option<String>,
     pub credential_type: CredentialType,
-    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ListViewState {
     pub selected: Option<usize>,
     pub total: usize,
-    pub offset: usize,
-    pub search: Option<String>,
     list_state: ListState,
 }
 
-impl Default for ListViewState {
-    fn default() -> Self {
-        Self {
-            selected: None,
-            total: 0,
-            offset: 0,
-            search: None,
-            list_state: ListState::default(),
-        }
-    }
-}
 
 impl ListViewState {
     pub fn new() -> Self {
@@ -145,16 +132,6 @@ impl<'a> CredentialList<'a> {
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
-        self
-    }
-
-    pub fn highlight_style(mut self, style: Style) -> Self {
-        self.highlight_style = style;
-        self
-    }
-
-    pub fn show_username(mut self, show: bool) -> Self {
-        self.show_username = show;
         self
     }
 }

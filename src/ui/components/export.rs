@@ -171,62 +171,6 @@ impl ExportDialog {
         }
     }
 
-    pub fn delete_char(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.delete_char(),
-            ExportField::Path => self.path.delete_char(),
-            _ => {}
-        }
-    }
-
-    pub fn delete_word(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.delete_word(),
-            ExportField::Path => self.path.delete_word(),
-            _ => {}
-        }
-    }
-
-    pub fn cursor_left(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_left(),
-            ExportField::Path => self.path.cursor_left(),
-            _ => {}
-        }
-    }
-
-    pub fn cursor_right(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_right(),
-            ExportField::Path => self.path.cursor_right(),
-            _ => {}
-        }
-    }
-
-    pub fn cursor_home(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_home(),
-            ExportField::Path => self.path.cursor_home(),
-            _ => {}
-        }
-    }
-
-    pub fn cursor_end(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.cursor_end(),
-            ExportField::Path => self.path.cursor_end(),
-            _ => {}
-        }
-    }
-
-    pub fn clear_to_start(&mut self) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => self.passphrase.clear_to_start(),
-            ExportField::Path => self.path.clear_to_start(),
-            _ => {}
-        }
-    }
-
     pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers) {
         match self.active_field {
             ExportField::Passphrase if self.needs_passphrase() => {
@@ -241,15 +185,6 @@ impl ExportDialog {
 
     pub fn needs_passphrase(&self) -> bool {
         self.encryption != ExportEncryption::None
-    }
-
-    pub fn passphrase_is_empty(&self) -> bool {
-        self.passphrase.is_empty()
-    }
-
-    // For rendering - get length for masking
-    pub fn passphrase_len(&self) -> usize {
-        self.passphrase.len()
     }
 
     // Only expose when needed for export
@@ -461,6 +396,7 @@ fn label_style(is_active: bool) -> Style {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_select_field(
     buf: &mut Buffer,
     x: u16,
@@ -487,6 +423,7 @@ fn render_select_field(
     buf.set_string(value_x, y, &display, value_style);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_input_field(
     buf: &mut Buffer,
     x: u16,
@@ -537,6 +474,7 @@ fn render_disabled_input(buf: &mut Buffer, x: u16, y: u16, bg_color: Color) {
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_enabled_input(
     buf: &mut Buffer,
     x: u16,

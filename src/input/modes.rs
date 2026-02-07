@@ -67,39 +67,39 @@ impl ModeState {
         self.pending = None;
     }
 
-    pub fn to_normal(&mut self) {
+    pub fn enter_normal_mode(&mut self) {
         self.set_mode(InputMode::Normal);
     }
 
-    pub fn to_insert(&mut self) {
+    pub fn enter_insert_mode(&mut self) {
         self.mode = InputMode::Insert;
     }
 
-    pub fn to_command(&mut self) {
+    pub fn enter_command_mode(&mut self) {
         self.set_mode(InputMode::Command);
     }
 
-    pub fn to_search(&mut self) {
+    pub fn enter_search_mode(&mut self) {
         self.set_mode(InputMode::Search);
     }
 
-    pub fn to_confirm(&mut self) {
+    pub fn enter_confirm_mode(&mut self) {
         self.set_mode(InputMode::Confirm);
     }
 
-    pub fn to_help(&mut self) {
+    pub fn enter_help_mode(&mut self) {
         self.set_mode(InputMode::Help);
     }
 
-    pub fn to_tags(&mut self) {
+    pub fn enter_tags_mode(&mut self) {
         self.mode = InputMode::Tags;
     }
 
-    pub fn to_logs(&mut self) {
+    pub fn enter_logs_mode(&mut self) {
         self.mode = InputMode::Logs;
     }
 
-    pub fn to_export(&mut self) {
+    pub fn enter_export_mode(&mut self) {
         self.set_mode(InputMode::Export);
     }
 
@@ -110,10 +110,6 @@ impl ModeState {
 
     pub fn delete_char(&mut self) {
         self.buffer.delete_char();
-    }
-
-    pub fn delete_char_forward(&mut self) {
-        self.buffer.delete_char_forward();
     }
 
     pub fn delete_word(&mut self) {
@@ -136,10 +132,6 @@ impl ModeState {
         self.buffer.cursor_end();
     }
 
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear();
-    }
-
     pub fn clear_to_start(&mut self) {
         self.buffer.clear_to_start();
     }
@@ -147,70 +139,137 @@ impl ModeState {
     pub fn get_buffer(&self) -> &str {
         self.buffer.content()
     }
-
-    pub fn set_buffer(&mut self, content: &str) {
-        self.buffer.set_content(content);
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // --- Mode transition basics ---
+
+    #[test]
+    fn test_starts_in_normal_mode() {
+        let state = ModeState::new();
+        assert_eq!(state.mode, InputMode::Normal);
+        assert_eq!(state.get_buffer(), "");
+        assert!(state.pending.is_none());
+    }
+
     #[test]
     fn test_mode_transitions() {
         let mut state = ModeState::new();
-        assert_eq!(state.mode, InputMode::Normal);
 
-        state.to_insert();
+        state.enter_insert_mode();
         assert_eq!(state.mode, InputMode::Insert);
 
-        state.to_command();
+        state.enter_command_mode();
         assert_eq!(state.mode, InputMode::Command);
 
-        state.to_normal();
+        state.enter_search_mode();
+        assert_eq!(state.mode, InputMode::Search);
+
+        state.enter_confirm_mode();
+        assert_eq!(state.mode, InputMode::Confirm);
+
+        state.enter_help_mode();
+        assert_eq!(state.mode, InputMode::Help);
+
+        state.enter_tags_mode();
+        assert_eq!(state.mode, InputMode::Tags);
+
+        state.enter_logs_mode();
+        assert_eq!(state.mode, InputMode::Logs);
+
+        state.enter_export_mode();
+        assert_eq!(state.mode, InputMode::Export);
+
+        state.enter_normal_mode();
         assert_eq!(state.mode, InputMode::Normal);
     }
+
+    // --- Buffer clearing semantics ---
+    // Some transitions go through set_mode() which clears buffer+pending.
+    // Others (insert, tags, logs) set mode directly and preserve buffer.
+    // This distinction matters: e.g. switching to tags view shouldn't nuke
+    // a search query the user typed.
+
+    #[test]
+    fn test_set_mode_transitions_clear_buffer() {
+        let mut state = ModeState::new();
+
+        // Populate buffer and pending
+        state.enter_command_mode();
+        state.insert_char('x');
+        state.pending = Some('d');
+
+        // Normal goes through set_mode — should clear everything
+        state.enter_normal_mode();
+        assert_eq!(state.get_buffer(), "");
+        assert!(state.pending.is_none());
+    }
+
+    #[test]
+    fn test_insert_mode_preserves_buffer() {
+        let mut state = ModeState::new();
+        state.insert_char('a');
+        state.insert_char('b');
+
+        state.enter_insert_mode();
+        assert_eq!(state.mode, InputMode::Insert);
+        assert_eq!(state.get_buffer(), "ab", "insert should not clear buffer");
+    }
+
+    #[test]
+    fn test_tags_mode_preserves_buffer() {
+        let mut state = ModeState::new();
+        state.insert_char('z');
+
+        state.enter_tags_mode();
+        assert_eq!(state.mode, InputMode::Tags);
+        assert_eq!(state.get_buffer(), "z", "tags should not clear buffer");
+    }
+
+    #[test]
+    fn test_logs_mode_preserves_buffer() {
+        let mut state = ModeState::new();
+        state.insert_char('z');
+
+        state.enter_logs_mode();
+        assert_eq!(state.mode, InputMode::Logs);
+        assert_eq!(state.get_buffer(), "z", "logs should not clear buffer");
+    }
+
+    // --- Text input ---
 
     #[test]
     fn test_command_mode_input() {
         let mut state = ModeState::new();
-        state.to_command();
+        state.enter_command_mode();
         for c in "quit".chars() {
             state.insert_char(c);
         }
         assert_eq!(state.get_buffer(), "quit");
+        assert_eq!(state.buffer.cursor(), 4);
     }
 
     #[test]
-    fn test_cancel_returns_to_normal() {
+    fn test_delete_char() {
         let mut state = ModeState::new();
-        state.to_command();
-        state.insert_char('x');
-        state.to_normal();
-        assert_eq!(state.mode, InputMode::Normal);
-    }
-
-    #[test]
-    fn test_text_input() {
-        let mut state = ModeState::new();
-        state.to_insert();
-
         for c in "hello".chars() {
             state.insert_char(c);
         }
 
-        assert_eq!(state.get_buffer(), "hello");
-        assert_eq!(state.buffer.cursor(), 5);
-
         state.delete_char();
         assert_eq!(state.get_buffer(), "hell");
+        assert_eq!(state.buffer.cursor(), 4);
     }
+
+    // --- Cursor movement ---
 
     #[test]
     fn test_cursor_movement() {
         let mut state = ModeState::new();
-        state.set_buffer("hello");
+        state.buffer.set_content("hello");
 
         state.cursor_home();
         assert_eq!(state.buffer.cursor(), 0);
@@ -223,14 +282,39 @@ mod tests {
 
         state.cursor_right();
         assert_eq!(state.buffer.cursor(), 5);
+
+        // Right at end should be a no-op
+        state.cursor_right();
+        assert_eq!(state.buffer.cursor(), 5);
+
+        // Left at 0 should be a no-op
+        state.cursor_home();
+        state.cursor_left();
+        assert_eq!(state.buffer.cursor(), 0);
     }
+
+    // --- InputMode properties ---
 
     #[test]
     fn test_is_text_input() {
-        assert!(!InputMode::Normal.is_text_input());
-        assert!(!InputMode::Insert.is_text_input());
+        // Only Command and Search accept freeform text input
         assert!(InputMode::Command.is_text_input());
         assert!(InputMode::Search.is_text_input());
+
+        assert!(!InputMode::Normal.is_text_input());
+        assert!(!InputMode::Insert.is_text_input());
+        assert!(!InputMode::Confirm.is_text_input());
         assert!(!InputMode::Help.is_text_input());
+        assert!(!InputMode::Logs.is_text_input());
+        assert!(!InputMode::Tags.is_text_input());
+        assert!(!InputMode::Export.is_text_input());
+    }
+
+    #[test]
+    fn test_indicator_strings() {
+        // Sanity check — these show up in the statusline
+        assert_eq!(InputMode::Normal.indicator(), "NORMAL");
+        assert_eq!(InputMode::Insert.indicator(), "INSERT");
+        assert_eq!(InputMode::Command.indicator(), "COMMAND");
     }
 }

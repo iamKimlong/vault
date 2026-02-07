@@ -31,7 +31,7 @@ impl Default for VaultConfig {
     fn default() -> Self {
         let path = dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("credlock")
+            .join("vault")
             .join("vault.db");
 
         Self { path }
@@ -42,7 +42,6 @@ impl VaultConfig {
     pub fn with_path(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
-            ..Default::default()
         }
     }
 }
@@ -64,10 +63,6 @@ impl Vault {
             password_hash: None,
             last_activity: Instant::now(),
         }
-    }
-
-    pub fn with_default_config() -> Self {
-        Self::new(VaultConfig::default())
     }
 
     pub fn state(&self) -> VaultState {
@@ -150,18 +145,10 @@ impl Vault {
         Ok(self.keys()?.dek())
     }
 
-    pub fn master_key(&self) -> VaultResult<&MasterKey> {
-        Ok(self.keys()?.master_key())
-    }
-
     pub fn verify_password(&self, password: &str) -> VaultResult<()> {
         let hash = self.password_hash.as_ref().ok_or(VaultError::Locked)?;
         verify_master_key(password.as_bytes(), hash).map_err(|_| VaultError::InvalidPassword)?;
         Ok(())
-    }
-
-    pub fn config(&self) -> &VaultConfig {
-        &self.config
     }
 
     pub fn change_password(&mut self, old_password: &str, new_password: &str) -> VaultResult<()> {

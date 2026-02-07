@@ -19,6 +19,7 @@ pub enum DbError {
     NotFound(String),
 
     #[error("Migration failed: {0}")]
+    #[allow(dead_code)]
     MigrationFailed(String),
 }
 

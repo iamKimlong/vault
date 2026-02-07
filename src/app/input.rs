@@ -72,10 +72,9 @@ impl App {
             Action::CursorRight => { self.mode_state.cursor_right(); Action::None }
             Action::CursorHome => { self.mode_state.cursor_home(); Action::None }
             Action::CursorEnd => { self.mode_state.cursor_end(); Action::None }
-            Action::ClearLine => { self.mode_state.clear_buffer(); Action::None }
             Action::ClearToStart => { self.mode_state.clear_to_start(); Action::None }
             Action::Submit => self.submit_text_input(),
-            Action::Cancel => { self.mode_state.to_normal(); Action::None }
+            Action::Cancel => { self.mode_state.enter_normal_mode(); Action::None }
             _ => action,
         }
     }
@@ -87,18 +86,18 @@ impl App {
             InputMode::Search => Action::Search(buffer),
             _ => Action::None,
         };
-        self.mode_state.to_normal();
+        self.mode_state.enter_normal_mode();
         result
     }
 
     fn handle_form_key(&mut self, key: KeyEvent) -> Result<bool, Box<dyn std::error::Error>> {
         let form = self.credential_form.as_mut().unwrap();
-        let return_to = form.previous_view.clone();
+        let return_to = form.previous_view;
 
         if key.code == KeyCode::Esc {
             self.credential_form = None;
             self.view = return_to;
-            self.mode_state.to_normal();
+            self.mode_state.enter_normal_mode();
             return Ok(false);
         }
 
@@ -176,8 +175,8 @@ fn help_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
 
     let size = app.terminal_size;
     let visible = HelpScreen::visible_height(size) as usize;
-    let max_v = HelpScreen::max_scroll(size) as usize;
-    let max_h = HelpScreen::max_h_scroll(size) as usize;
+    let max_v = HelpScreen::max_scroll(size);
+    let max_h = HelpScreen::max_h_scroll(size);
 
     help_scroll_action(app, code, mods, was_pending, visible, max_v, max_h);
     None
@@ -188,7 +187,7 @@ fn help_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT)
         | (KeyCode::Char('q'), KeyModifiers::NONE)
         | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
+            app.mode_state.enter_normal_mode();
             Some(None)
         }
         (KeyCode::Char('i'), KeyModifiers::NONE) => Some(Some(Action::ShowLogs)),
@@ -228,9 +227,9 @@ fn logs_key_handler(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
     state.scroll.pending_g = false;
 
     let visible = LogsScreen::visible_height(size) as usize;
-    let max_v = state.max_scroll(visible as u16) as usize;
+    let max_v = state.max_scroll(visible as u16);
     let visible_width = LogsScreen::visible_width(size);
-    let max_h = state.max_h_scroll(visible_width) as usize;
+    let max_h = state.max_h_scroll(visible_width);
 
     logs_scroll_action(state, code, mods, was_pending, visible, max_v, max_h);
     None
@@ -241,7 +240,7 @@ fn logs_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('i'), KeyModifiers::NONE)
         | (KeyCode::Char('q'), KeyModifiers::NONE)
         | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
+            app.mode_state.enter_normal_mode();
             Some(None)
         }
         (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Some(Action::ShowHelp)),
@@ -290,7 +289,7 @@ fn tags_exit_action(app: &mut App, code: KeyCode, mods: KeyModifiers) -> Option<
         (KeyCode::Char('t'), KeyModifiers::NONE)
         | (KeyCode::Char('q'), KeyModifiers::NONE)
         | (KeyCode::Esc, _) => {
-            app.mode_state.to_normal();
+            app.mode_state.enter_normal_mode();
             Some(None)
         }
         (KeyCode::Char('?'), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(Some(Action::ShowHelp)),
@@ -328,7 +327,7 @@ fn tags_toggle_and_advance(state: &mut crate::ui::components::tags::TagsState) {
 fn handle_tags_select(app: &mut App) -> Option<Action> {
     let tags = app.tags_state.get_selected_tags();
     
-    app.mode_state.to_normal();
+    app.mode_state.enter_normal_mode();
     // Empty tags will clear the filter
     let _ = app.filter_by_tag(&tags);
     None

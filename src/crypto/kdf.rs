@@ -27,7 +27,8 @@ impl MasterKey {
         }
     }
 
-    /// Get key bytes
+    /// Get key bytes (used in tests; kept for type-safe 32-byte access)
+    #[allow(dead_code)]
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.key
     }

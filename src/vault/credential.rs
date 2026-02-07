@@ -110,6 +110,7 @@ fn encrypt_notes_for_update(dek: &DataEncryptionKey, notes: Option<&str>) -> Vau
     Ok(Some(encrypted))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_credential(
     conn: &rusqlite::Connection,
     dek: &DataEncryptionKey,
@@ -135,10 +136,6 @@ pub fn create_credential(
 
     db::create_credential(conn, &cred)?;
     Ok(cred)
-}
-
-pub fn get_credential(conn: &rusqlite::Connection, id: &str) -> VaultResult<Credential> {
-    Ok(db::get_credential(conn, id)?)
 }
 
 pub fn decrypt_credential(
@@ -174,15 +171,6 @@ pub fn update_credential(
     cred.encrypted_totp_secret = encrypt_totp_secret(dek, new_totp_secret)?;
     db::update_credential(conn, cred)?;
     Ok(())
-}
-
-pub fn delete_credential(conn: &rusqlite::Connection, id: &str) -> VaultResult<()> {
-    db::delete_credential(conn, id)?;
-    Ok(())
-}
-
-pub fn list_credentials(conn: &rusqlite::Connection) -> VaultResult<Vec<Credential>> {
-    Ok(db::get_all_credentials(conn)?)
 }
 
 #[cfg(test)]
@@ -264,7 +252,7 @@ mod tests {
         let mut cred = create_test_credential(conn, &dek, "Test", "old_secret");
         update_credential(conn, &dek, &mut cred, Some("new_secret"), Some("new notes"), None).unwrap();
 
-        let fetched = get_credential(conn, &cred.id).unwrap();
+        let fetched = db::get_credential(conn, &cred.id).unwrap();
         let decrypted = decrypt_credential(conn, &dek, &fetched, false).unwrap();
 
         assert_eq!(
@@ -284,8 +272,8 @@ mod tests {
         let dek = test_dek();
 
         let cred = create_test_credential(conn, &dek, "Test", "secret");
-        delete_credential(conn, &cred.id).unwrap();
-        assert!(get_credential(conn, &cred.id).is_err());
+        db::delete_credential(conn, &cred.id).unwrap();
+        assert!(db::get_credential(conn, &cred.id).is_err());
     }
 
     #[test]
