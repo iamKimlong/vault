@@ -71,7 +71,7 @@ impl<'a> HelpScreen<'a> {
     }
 
     pub fn visible_height(area: Rect) -> u16 {
-        let popup = centered_rect(65, 65, area);
+        let popup = centered_rect(70, 80, area);
         popup.height.saturating_sub(2)
     }
 
@@ -82,13 +82,13 @@ impl<'a> HelpScreen<'a> {
     }
 
     pub fn max_h_scroll(area: Rect) -> usize {
-        let popup = centered_rect(65, 65, area);
+        let popup = centered_rect(70, 80, area);
         let inner_width = popup.width.saturating_sub(2) as usize;
         single_column_width().saturating_sub(inner_width)
     }
 
     fn content_height(area: Rect) -> usize {
-        let popup = centered_rect(65, 65, area);
+        let popup = centered_rect(70, 80, area);
         let inner_width = popup.width.saturating_sub(2);
         if inner_width >= TWO_COLUMN_MIN_WIDTH {
             two_column_height()
@@ -125,7 +125,7 @@ fn single_column_width() -> usize {
 
 impl Widget for HelpScreen<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let popup = centered_rect(65, 65, area);
+        let popup = centered_rect(70, 75, area);
         Clear.render(popup, buf);
 
         let block = create_popup_block(" Help Page ", Color::Magenta);
@@ -287,10 +287,10 @@ fn help_sections() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
             ("k / ↑", "Move up"),
             ("gg", "Go to top"),
             ("G", "Go to bottom"),
-            ("Ctrl-d", "Half page down"),
-            ("Ctrl-u", "Half page up"),
-            ("Ctrl-f", "Page down"),
-            ("Ctrl-b", "Page up"),
+            ("Ctrl+d", "Half page down"),
+            ("Ctrl+u", "Half page up"),
+            ("Ctrl+f", "Page down"),
+            ("Ctrl+b", "Page up"),
         ]),
         ("Actions", vec![
             ("l / Enter", "View details"),

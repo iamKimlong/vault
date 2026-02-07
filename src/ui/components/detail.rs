@@ -39,7 +39,7 @@ impl<'a> DetailView<'a> {
 }
 
 fn render_field(buf: &mut Buffer, x: u16, y: &mut u16, _width: u16, label: &str, value: &[Span]) {
-    let label_style = Style::default().fg(Color::DarkGray);
+    let label_style = Style::default().fg(Color::White);
     buf.set_string(x, *y, format!("{}:", label), label_style);
 
     let value_x = x + 12;
@@ -130,7 +130,7 @@ fn render_tags_field(buf: &mut Buffer, x: u16, y: &mut u16, width: u16, tags: &[
 }
 
 fn render_notes_section(buf: &mut Buffer, inner: &Rect, y: &mut u16, notes: &str) {
-    let label_style = Style::default().fg(Color::DarkGray);
+    let label_style = Style::default().fg(Color::Yellow);
     buf.set_string(inner.x, *y, "Notes:", label_style);
     *y += 1;
 
@@ -146,9 +146,12 @@ fn render_timestamps(buf: &mut Buffer, inner: &Rect, y: u16, created: &str, upda
     if footer_y <= y {
         return;
     }
-    let style = Style::default().fg(Color::DarkGray);
-    buf.set_string(inner.x, footer_y, format!("Created: {}", created), style);
-    buf.set_string(inner.x, footer_y + 1, format!("Updated: {}", updated), style);
+    let label_style = Style::default().fg(Color::Green);
+    let value_style = Style::default().fg(Color::White);
+    buf.set_string(inner.x, footer_y, "Created: ", label_style);
+    buf.set_string(inner.x + 9, footer_y, created, value_style);
+    buf.set_string(inner.x, footer_y + 1, "Updated: ", label_style);
+    buf.set_string(inner.x + 9, footer_y + 1, updated, value_style);
 }
 
 fn render_detail_block(area: Rect, buf: &mut Buffer, name: &str) -> Rect {

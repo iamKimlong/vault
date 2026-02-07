@@ -88,10 +88,10 @@ impl<'a> StatusLine<'a> {
 fn mode_style(mode: InputMode) -> Style {
     let base = Style::default().fg(Color::Black);
     match mode {
-        InputMode::Normal => base.bg(Color::Blue),
-        InputMode::Insert => base.bg(Color::Green),
+        InputMode::Normal => base.bg(Color::Magenta),
+        InputMode::Insert => base.bg(Color::Blue),
         InputMode::Command => base.bg(Color::Red),
-        InputMode::Search => base.bg(Color::Magenta),
+        InputMode::Search => base.bg(Color::Green),
         InputMode::Confirm => base.bg(Color::Red),
         InputMode::Help => base.bg(Color::Yellow),
         InputMode::Logs => base.bg(Color::Green),
@@ -250,9 +250,10 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
             ("?", "help"),
         ],
         InputMode::Insert => vec![
-            ("Esc", "cancel"),
-            ("Enter", "confirm"),
-            ("C-u", "clear"),
+            ("esc", "cancel"),
+            ("tab/shift+tab", "next/prev field"),
+            ("ctrl+s", "show pwd"),
+            ("enter", "save"),
         ],
         InputMode::Command | InputMode::Search => vec![
             ("Esc", "cancel"),
@@ -265,7 +266,7 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
         InputMode::Help | InputMode::Logs => vec![
             ("esc", "close"),
             ("j/k", "scroll"),
-            ("ctrl-d/u", "page"),
+            ("ctrl+[d/u]", "page"),
             ("h/l", "pan"),
             ("0/$", "start/end"),
             ("gg/G", "top/bottom"),
@@ -273,13 +274,13 @@ fn hints_for_mode(mode: InputMode) -> Vec<(&'static str, &'static str)> {
         InputMode::Tags => vec![
             ("esc", "close"),
             ("j/k", "scroll"),
-            ("ctrl-d/u", "page"),
+            ("ctrl+[d/u]", "page"),
             ("space", "select"),
             ("enter", "filter"),
         ],
         InputMode::Export => vec![
-            ("tab/shift-tab", "cycle field"),
-            ("space/ctrl-space", "cycle option"),
+            ("tab/shift+tab", "cycle field"),
+            ("space/ctrl+space", "cycle option"),
             ("enter", "export"),
             ("esc", "cancel"),
         ]

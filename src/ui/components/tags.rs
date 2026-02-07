@@ -166,9 +166,10 @@ impl Widget for TagsPopup<'_> {
 }
 
 fn calculate_tags_height(count: usize, area_height: u16) -> u16 {
-    // Match the content area used by centered_rect_fixed(unlocked=true)
     let available = area_height.saturating_sub(2);
-    (count as u16 + 4).min((available * 80) / 100).max(8)
+    // +4 = 2 border + 2 header (header row + separator)
+    let desired = (count as u16).saturating_add(4);
+    desired.min((available * 75) / 100).max(8)
 }
 
 fn render_tags_header(inner: Rect, buf: &mut Buffer) {

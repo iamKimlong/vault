@@ -256,7 +256,7 @@ impl Default for UnlockState {
 }
 
 fn unlock_iteration(terminal: &mut Term, app: &mut App, state: &mut UnlockState) -> Result<(), Box<dyn std::error::Error>> {
-    draw_password_dialog(terminal, " Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
+    draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
 
     let Some(key) = poll_key_press()? else { return Ok(()) };
 
@@ -288,7 +288,7 @@ fn process_unlock_attempt(state: &mut UnlockState, app: &mut App) {
     state.attempts += 1;
     state.password.clear();
     let _ = app.vault.record_failed_unlock();
-    state.error = Some(format!("Invalid password ({}/5)", state.attempts));
+    state.error = Some(format!(" Invalid password ({}/5)", state.attempts));
 
     if state.attempts >= 5 {
         app.should_quit = true;

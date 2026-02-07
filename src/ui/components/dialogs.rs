@@ -50,12 +50,14 @@ fn render_confirm_hint(buf: &mut Buffer, x: u16, y: u16, _width: u16) {
     buf.set_line(x, y, &hint, 20);
 }
 
+#[allow(dead_code)]
 pub struct MessagePopup<'a> {
     title: &'a str,
     message: &'a str,
     style: Style,
 }
 
+#[allow(dead_code)]
 impl<'a> MessagePopup<'a> {
     pub fn info(title: &'a str, message: &'a str) -> Self {
         Self { title, message, style: Style::default().fg(Color::Magenta) }
@@ -112,8 +114,9 @@ impl<'a> PasswordDialog<'a> {
 
 impl Widget for PasswordDialog<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let height = if self.error.is_some() { 7 } else { 6 };
-        let popup_area = centered_rect_fixed(40, height, area, false);
+        let dialog_width = 40;
+        let height = 6;
+        let popup_area = centered_rect_fixed(dialog_width, height, area, false);
         Clear.render(popup_area, buf);
 
         let block = create_popup_block(self.title, Color::Magenta);
@@ -122,11 +125,30 @@ impl Widget for PasswordDialog<'_> {
 
         buf.set_string(inner.x, inner.y, self.prompt, Style::default().fg(Color::White));
 
-        let input_rect = Rect::new(inner.x, inner.y + 1, inner.width, 2);
-        InputField::new("", self.value, self.cursor)
-            .masked()
-            .style(Style::default().fg(Color::Yellow))
-            .render(input_rect, buf);
+        let field_width = inner.width as usize;
+        let masked: String = "•".repeat(self.value.chars().count());
+        let scroll = if self.cursor >= field_width.saturating_sub(1) {
+            self.cursor.saturating_sub(field_width.saturating_sub(2))
+        } else {
+            0
+        };
+        let visible: String = masked.chars().skip(scroll).take(field_width).collect();
+        let adjusted_cursor = self.cursor.saturating_sub(scroll);
+
+        let value_y = inner.y + 2;
+        for cx in inner.x..inner.x + inner.width {
+            if let Some(cell) = buf.cell_mut((cx, value_y)) {
+                cell.set_style(Style::default().bg(Color::DarkGray));
+            }
+        }
+        buf.set_string(inner.x, value_y, &visible, Style::default().fg(Color::Yellow).bg(Color::DarkGray));
+
+        let cursor_x = inner.x + adjusted_cursor as u16;
+        if cursor_x < inner.x + inner.width {
+            if let Some(cell) = buf.cell_mut((cursor_x, value_y)) {
+                cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
+            }
+        }
 
         if let Some(err) = self.error {
             buf.set_string(inner.x, inner.y + 3, err, Style::default().fg(Color::Red));

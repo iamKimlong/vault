@@ -6,8 +6,7 @@ use crate::input::{
 };
 use crate::ui::{
     components::{help::HelpScreen, logs::LogsScreen, tags::TagsPopup},
-    components::{CredentialForm, MessageType, export::ExportField},
-    renderer::View,
+    components::{CredentialForm, MessageType, export::ExportField}
 };
 
 use super::App;
@@ -20,7 +19,7 @@ impl App {
             return Ok(false);
         }
 
-        if self.view == View::Form && self.credential_form.is_some() {
+        if self.mode_state.mode == InputMode::Insert && self.credential_form.is_some() {
             return self.handle_form_key(key);
         }
 
@@ -99,6 +98,7 @@ impl App {
         if key.code == KeyCode::Esc {
             self.credential_form = None;
             self.view = return_to;
+            self.mode_state.to_normal();
             return Ok(false);
         }
 
@@ -107,7 +107,7 @@ impl App {
         }
 
         let form = self.credential_form.as_mut().unwrap();
-        dispatch_form_key(form, key.code, key.modifiers);
+        dispatch_form_key(form, key.code, key.modifiers, self.terminal_size.height);
         Ok(false)
     }
 
@@ -156,13 +156,13 @@ fn handle_export_ctrl_space(dialog: &mut crate::ui::components::export::ExportDi
     }
 }
 
-fn dispatch_form_key(form: &mut CredentialForm, code: KeyCode, mods: KeyModifiers) {
+fn dispatch_form_key(form: &mut CredentialForm, code: KeyCode, mods: KeyModifiers, area_height: u16) {
     match (code, mods) {
-        (KeyCode::Tab, KeyModifiers::NONE) | (KeyCode::Down, _) => form.next_field(),
-        (KeyCode::BackTab, _) | (KeyCode::Up, _) => form.prev_field(),
+        (KeyCode::Tab, KeyModifiers::NONE) | (KeyCode::Down, _) => form.next_field(area_height),
+        (KeyCode::BackTab, _) | (KeyCode::Up, _) => form.prev_field(area_height),
         (KeyCode::Char('s'), KeyModifiers::CONTROL) => form.toggle_password_visibility(),
         (KeyCode::Char(' '), m) if form.is_select_field() => form.cycle_type(m != KeyModifiers::CONTROL),
-        _ => { form.handle_text_key(code, mods); }
+        _ => { form.handle_text_key(code, mods, area_height); }
     }
 }
 

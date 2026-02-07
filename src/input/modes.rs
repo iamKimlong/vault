@@ -34,7 +34,7 @@ impl InputMode {
     }
 
     pub fn is_text_input(&self) -> bool {
-        matches!(self, Self::Insert | Self::Command | Self::Search)
+        matches!(self, Self::Command | Self::Search)
     }
 }
 
@@ -72,7 +72,7 @@ impl ModeState {
     }
 
     pub fn to_insert(&mut self) {
-        self.set_mode(InputMode::Insert);
+        self.mode = InputMode::Insert;
     }
 
     pub fn to_command(&mut self) {
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn test_is_text_input() {
         assert!(!InputMode::Normal.is_text_input());
-        assert!(InputMode::Insert.is_text_input());
+        assert!(!InputMode::Insert.is_text_input());
         assert!(InputMode::Command.is_text_input());
         assert!(InputMode::Search.is_text_input());
         assert!(!InputMode::Help.is_text_input());

@@ -90,6 +90,7 @@ pub struct CredentialForm {
     pub editing_id: Option<String>,
     pub show_password: bool,
     pub scroll_offset: usize,
+    pub multiline_scroll: usize,
     pub previous_view: View,
 }
 
@@ -159,6 +160,7 @@ impl CredentialForm {
             editing_id: None,
             show_password: false,
             scroll_offset: 0,
+            multiline_scroll: 0,
             previous_view: View::List,
         }
     }
@@ -205,86 +207,49 @@ impl CredentialForm {
         &mut self.fields[self.active_field]
     }
 
-    fn ensure_visible(&mut self, visible_fields: usize) {
+    fn ensure_visible(&mut self, total_height: u16) {
         if self.active_field < self.scroll_offset {
             self.scroll_offset = self.active_field;
             return;
         }
-        if self.active_field >= self.scroll_offset + visible_fields {
-            self.scroll_offset = self.active_field - visible_fields + 1;
+
+        let value_width = 49usize;
+
+        loop {
+            let visible = count_visible_fields(&self.fields, self.scroll_offset, total_height, value_width);
+            if self.active_field < self.scroll_offset + visible {
+                break;
+            }
+            self.scroll_offset += 1;
+            if self.scroll_offset > self.active_field {
+                self.scroll_offset = self.active_field;
+                break;
+            }
         }
     }
 
-    pub fn next_field(&mut self) {
+    pub fn next_field(&mut self, area_height: u16) {
         self.active_field = (self.active_field + 1) % self.fields.len();
         self.cursor = self.fields[self.active_field].value.len();
-        self.ensure_visible(5);
+        self.multiline_scroll = 0;
+        self.ensure_visible(Self::form_inner_height(area_height));
     }
 
-    pub fn prev_field(&mut self) {
+    pub fn prev_field(&mut self, area_height: u16) {
         if self.active_field == 0 {
             self.active_field = self.fields.len() - 1;
         } else {
             self.active_field -= 1;
         }
         self.cursor = self.fields[self.active_field].value.len();
-        self.ensure_visible(5);
+        self.multiline_scroll = 0;
+        self.ensure_visible(Self::form_inner_height(area_height));
     }
 
-    pub fn insert_char(&mut self, c: char) {
-        if self.active_field().field_type == FieldType::Select {
-            return;
-        }
-        let mut buf = self.active_buffer();
-        buf.insert_char(c);
-        self.apply_buffer(buf);
-    }
-
-    pub fn delete_char(&mut self) {
-        if self.active_field().field_type == FieldType::Select {
-            return;
-        }
-        let mut buf = self.active_buffer();
-        buf.delete_char();
-        self.apply_buffer(buf);
-    }
-
-    pub fn delete_word(&mut self) {
-        if self.active_field().field_type == FieldType::Select {
-            return;
-        }
-        let mut buf = self.active_buffer();
-        buf.delete_word();
-        self.apply_buffer(buf);
-    }
-
-    pub fn clear_to_start(&mut self) {
-        if self.active_field().field_type == FieldType::Select {
-            return;
-        }
-        let mut buf = self.active_buffer();
-        buf.clear_to_start();
-        self.apply_buffer(buf);
-    }
-
-    pub fn cursor_left(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-        }
-    }
-
-    pub fn cursor_right(&mut self) {
-        if self.cursor < self.fields[self.active_field].value.len() {
-            self.cursor += 1;
-        }
-    }
-
-    pub fn cursor_home(&mut self) {
-        self.cursor = 0;
-    }
-
-    pub fn cursor_end(&mut self) {
-        self.cursor = self.fields[self.active_field].value.len();
+    fn form_inner_height(area_height: u16) -> u16 {
+        let available = area_height.saturating_sub(2); // statusline + helpbar
+        let form_height = 30u16.min(available.saturating_sub(2));
+        form_height.saturating_sub(2) // block borders
     }
 
     fn active_buffer(&self) -> TextBuffer {
@@ -302,13 +267,17 @@ impl CredentialForm {
         self.cursor = buf.cursor();
     }
 
-    pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers) {
+    pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers, area_height: u16) {
         if self.active_field().field_type == FieldType::Select {
             return;
         }
         let mut buf = self.active_buffer();
         if handle_text_key(&mut buf, code, mods) {
+            let is_multiline = self.active_field().field_type == FieldType::MultiLine;
             self.apply_buffer(buf);
+            if is_multiline {
+                self.ensure_visible(Self::form_inner_height(area_height));
+            }
         }
     }
 
@@ -455,14 +424,14 @@ fn compute_select_display(form: &CredentialForm, field: &FormField) -> DisplayVa
     }
 }
 
-fn compute_text_display(form: &CredentialForm, field: &FormField, value_width: usize) -> DisplayValue {
+fn compute_text_display(form: &CredentialForm, field: &FormField, value_width: usize, is_active: bool) -> DisplayValue {
     let text = if field.masked && !form.show_password {
         "•".repeat(field.value.len())
     } else {
         field.value.clone()
     };
 
-    let cursor_pos = form.cursor;
+    let cursor_pos = if is_active { form.cursor } else { 0 };
     let scroll = if cursor_pos >= value_width.saturating_sub(1) {
         cursor_pos.saturating_sub(value_width.saturating_sub(2))
     } else {
@@ -488,6 +457,26 @@ fn value_style(field: &FormField, is_active: bool) -> Style {
     Style::default().fg(fg).bg(bg)
 }
 
+fn field_row_height(field: &FormField, _value_width: usize) -> u16 {
+    if field.field_type == FieldType::MultiLine {
+        4 // Fixed height — content scrolls internally
+    } else {
+        1
+    }
+}
+
+fn count_visible_fields(fields: &[FormField], offset: usize, height: u16, value_width: usize) -> usize {
+    let mut budget = height;
+    let mut count = 0;
+    for i in offset..fields.len() {
+        let h = field_row_height(&fields[i], value_width) + 1;
+        if budget < h { break; }
+        budget -= h;
+        count += 1;
+    }
+    count
+}
+
 fn render_cursor(buf: &mut Buffer, x: u16, y: u16, max_x: u16) {
     if x >= max_x {
         return;
@@ -505,7 +494,7 @@ fn render_field(
     inner: &Rect,
     y: u16,
     label_width: u16,
-) {
+) -> u16 {
     let is_active = field_idx == form.active_field;
 
     let label = format_label(field);
@@ -514,12 +503,16 @@ fn render_field(
     let value_x = inner.x + label_width;
     let value_width = inner.width.saturating_sub(label_width + 1);
 
+    if field.field_type == FieldType::MultiLine {
+        return render_multiline_field(buf, form, field, is_active, value_x, y, value_width);
+    }
+
     fill_field_background(buf, value_x, y, value_width, field_background_style(is_active));
 
     let display = if field.field_type == FieldType::Select {
         compute_select_display(form, field)
     } else {
-        compute_text_display(form, field, value_width as usize)
+        compute_text_display(form, field, value_width as usize, is_active)
     };
 
     buf.set_string(value_x, y, &display.text, value_style(field, is_active));
@@ -527,27 +520,117 @@ fn render_field(
     if is_active && field.field_type != FieldType::Select {
         render_cursor(buf, value_x + display.cursor as u16, y, value_x + value_width);
     }
+
+    1
 }
 
-fn render_help_footer(buf: &mut Buffer, inner: &Rect) {
-    let help_y = inner.y + inner.height;
-    let help_text = Line::from(vec![
-        Span::raw("Tab"),
-        Span::styled(" next  ", Style::default().fg(Color::White)),
-        Span::raw("Shift+Tab"),
-        Span::styled(" prev  ", Style::default().fg(Color::White)),
-        Span::raw("Enter"),
-        Span::styled(" save  ", Style::default().fg(Color::White)),
-        Span::raw("Esc"),
-        Span::styled(" cancel  ", Style::default().fg(Color::White)),
-        Span::raw("Ctrl+s"),
-        Span::styled(" show pwd", Style::default().fg(Color::White)),
-    ]);
+fn render_multiline_field(
+    buf: &mut Buffer,
+    form: &CredentialForm,
+    field: &FormField,
+    is_active: bool,
+    x: u16,
+    y: u16,
+    width: u16,
+) -> u16 {
+    let max_lines: u16 = 4;
+    let w = width as usize;
+    if w == 0 {
+        return 1;
+    }
 
-    let text_width = help_text.width() as u16;
-    let help_x = inner.x + inner.width.saturating_sub(text_width) / 2;
+    let text = &field.value;
 
-    buf.set_line(help_x, help_y, &help_text, text_width);
+    // Soft-wrap into visual lines, tracking byte offsets
+    let mut lines: Vec<String> = Vec::new();
+    let mut line_starts: Vec<usize> = vec![0];
+    let mut current_line = String::new();
+    let mut byte_idx: usize = 0;
+
+    for ch in text.chars() {
+        if ch == '\n' {
+            lines.push(current_line.clone());
+            current_line.clear();
+            byte_idx += ch.len_utf8();
+            line_starts.push(byte_idx);
+            continue;
+        }
+        current_line.push(ch);
+        byte_idx += ch.len_utf8();
+        if current_line.chars().count() >= w {
+            lines.push(current_line.clone());
+            current_line.clear();
+            line_starts.push(byte_idx);
+        }
+    }
+    lines.push(current_line);
+
+    let total_lines = lines.len();
+    let visible_lines = max_lines;
+
+    // Find which wrapped line the cursor is on
+    let cursor_pos = if is_active { form.cursor } else { 0 };
+    let mut cursor_line: usize = 0;
+    for (i, &start) in line_starts.iter().enumerate() {
+        if i + 1 < line_starts.len() {
+            if cursor_pos >= start && cursor_pos < line_starts[i + 1] {
+                cursor_line = i;
+                break;
+            }
+        } else {
+            cursor_line = i;
+        }
+    }
+
+    // Use form's multiline_scroll, auto-adjust to keep cursor visible
+    let scroll = if is_active {
+        let mut s = form.multiline_scroll;
+        if cursor_line < s {
+            s = cursor_line;
+        } else if cursor_line >= s + visible_lines as usize {
+            s = cursor_line - visible_lines as usize + 1;
+        }
+        s
+    } else {
+        0
+    };
+
+    let style = value_style(field, is_active);
+    let bg_style = field_background_style(is_active);
+
+    for row in 0..visible_lines {
+        let line_idx = scroll + row as usize;
+        let line_y = y + row;
+        fill_field_background(buf, x, line_y, width, bg_style);
+        if line_idx < lines.len() {
+            buf.set_string(x, line_y, &lines[line_idx], style);
+        }
+    }
+
+    // Cursor
+    if is_active {
+        let line_start = line_starts.get(cursor_line).copied().unwrap_or(0);
+        let cursor_in_line = cursor_pos.saturating_sub(line_start);
+        let cursor_row = cursor_line.saturating_sub(scroll);
+        if (cursor_row as u16) < visible_lines {
+            let cx = x + cursor_in_line as u16;
+            let cy = y + cursor_row as u16;
+            if cx < x + width {
+                if let Some(cell) = buf.cell_mut((cx, cy)) {
+                    cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
+                }
+            }
+        }
+    }
+
+    // Scroll indicator when content overflows
+    if total_lines > visible_lines as usize {
+        let indicator = format!("[{}/{}]", scroll + 1, total_lines.saturating_sub(visible_lines as usize) + 1);
+        let ind_x = x + width.saturating_sub(indicator.len() as u16);
+        buf.set_string(ind_x, y + visible_lines - 1, &indicator, Style::default().fg(Color::DarkGray));
+    }
+
+    visible_lines.max(1)
 }
 
 impl<'a> Widget for CredentialFormWidget<'a> {
@@ -555,29 +638,32 @@ impl<'a> Widget for CredentialFormWidget<'a> {
         let form_area = calculate_form_area(area);
         let inner = render_form_block(buf, form_area, self.title);
         let label_width = 18u16;
-        let visible_height = inner.height + 1;
-        let max_visible_fields = (visible_height / 2) as usize;
-        let needs_scrolling = self.form.fields.len() > max_visible_fields;
-        let scroll_offset = if needs_scrolling { self.form.scroll_offset } else { 0 };
+        let value_width = inner.width.saturating_sub(label_width + 1) as usize;
 
-        // Reserve bottom line for indicator when scrolling is needed
-        let fields_to_show = if needs_scrolling {
-            max_visible_fields.saturating_sub(1)
-        } else {
-            max_visible_fields
-        };
+        let scroll_offset = self.form.scroll_offset;
 
-        let max_v = self.form.fields.len().saturating_sub(fields_to_show);
+        // Count how many fields fit from scroll_offset
+        let visible_count = count_visible_fields(
+            &self.form.fields,
+            scroll_offset,
+            inner.height,
+            value_width,
+        );
+
+        let max_v = self.form.fields.len().saturating_sub(visible_count);
+        let needs_scrolling = max_v > 0;
 
         let mut y = inner.y;
+        let y_limit = inner.y + inner.height;
         for (i, field) in self.form.fields.iter().enumerate().skip(scroll_offset) {
-            if i >= scroll_offset + fields_to_show { break; }
-            render_field(buf, self.form, field, i, &inner, y, label_width);
-            y += 2;
+            if i >= scroll_offset + visible_count { break; }
+            if y >= y_limit { break; }
+            let rows_used = render_field(buf, self.form, field, i, &inner, y, label_width);
+            y += rows_used + 1;
         }
+
         if needs_scrolling {
-            render_v_scroll_indicator(buf, &inner, scroll_offset, max_v, Color::Magenta);
+            render_v_scroll_indicator(buf, &form_area, scroll_offset, max_v, Color::Magenta);
         }
-        render_help_footer(buf, &inner);
     }
 }

@@ -98,6 +98,7 @@ impl App {
     pub fn new_credential(&mut self) {
         self.credential_form = Some(CredentialForm::new());
         self.view = View::Form;
+        self.mode_state.to_insert();
     }
 
     pub fn edit_credential(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -135,6 +136,7 @@ impl App {
         );
         self.credential_form = Some(form);
         self.view = View::Form;
+        self.mode_state.to_insert();
     }
 
     pub fn save_credential_form(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -148,6 +150,7 @@ impl App {
         }
 
         self.view = return_to;
+        self.mode_state.to_normal();
         
         if let Some(query) = self.search_query.clone() {
             self.search_credentials(&query)?;
