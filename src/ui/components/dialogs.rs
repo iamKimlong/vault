@@ -135,21 +135,30 @@ impl Widget for PasswordDialog<'_> {
         let adjusted_cursor = self.cursor.saturating_sub(scroll);
 
         let value_y = inner.y + 2;
-        for cx in inner.x..inner.x + inner.width {
-            if let Some(cell) = buf.cell_mut((cx, value_y)) {
-                cell.set_style(Style::default().bg(Color::DarkGray));
-            }
-        }
+        fill_password_background(buf, inner.x, value_y, inner.width);
         buf.set_string(inner.x, value_y, &visible, Style::default().fg(Color::Yellow).bg(Color::DarkGray));
 
-        let cursor_x = inner.x + adjusted_cursor as u16;
-        if cursor_x < inner.x + inner.width
-            && let Some(cell) = buf.cell_mut((cursor_x, value_y)) {
-                cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
-            }
+        render_password_cursor(buf, inner.x + adjusted_cursor as u16, value_y, inner.x + inner.width);
 
         if let Some(err) = self.error {
             buf.set_string(inner.x, inner.y + 3, err, Style::default().fg(Color::Red));
         }
+    }
+}
+
+fn fill_password_background(buf: &mut Buffer, x: u16, y: u16, width: u16) {
+    for cx in x..x + width {
+        if let Some(cell) = buf.cell_mut((cx, y)) {
+            cell.set_style(Style::default().bg(Color::DarkGray));
+        }
+    }
+}
+
+fn render_password_cursor(buf: &mut Buffer, cursor_x: u16, y: u16, max_x: u16) {
+    if cursor_x >= max_x {
+        return;
+    }
+    if let Some(cell) = buf.cell_mut((cursor_x, y)) {
+        cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
     }
 }

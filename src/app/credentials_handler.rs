@@ -26,27 +26,23 @@ impl App {
     pub fn refresh_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let db = self.vault.db()?;
         
-        let mut results = match &self.filter_tags {
-            Some(tags) if !tags.is_empty() => {
-                crate::vault::search::filter_by_tags(db.conn(), tags)?
-            }
-            _ => crate::vault::search::get_all(db.conn())?,
-        };
+        let mut results = self.fetch_base_credentials(db)?;
         
-        if let Some(ref query) = self.search_query
-            && !query.is_empty() {
-                let query_lower = query.to_lowercase();
-                results.retain(|c| {
-                    c.name.to_lowercase().contains(&query_lower)
-                        || c.username.as_ref().is_some_and(|u| u.to_lowercase().contains(&query_lower))
-                        || c.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
-                });
-            }
+        if let Some(ref query) = self.search_query {
+            apply_search_filter(&mut results, query);
+        }
         
         self.credentials = results;
         self.credential_items = self.credentials.iter().map(credential_to_item).collect();
         self.list_state.set_total(self.credential_items.len());
         Ok(())
+    }
+
+    fn fetch_base_credentials(&self, db: &crate::db::Database) -> Result<Vec<Credential>, Box<dyn std::error::Error>> {
+        match &self.filter_tags {
+            Some(tags) if !tags.is_empty() => Ok(crate::vault::search::filter_by_tags(db.conn(), tags)?),
+            _ => Ok(crate::vault::search::get_all(db.conn())?),
+        }
     }
 
     pub fn clear_credentials(&mut self) {
@@ -67,11 +63,7 @@ impl App {
         self.refresh_data()?;
 
         if !tags.is_empty() {
-            let msg = match tags.len() {
-                1 => format!("Filtered by tag: {}", tags[0]),
-                _ => format!("Filtered by tags: {}", tags.join(", ")),
-            };
-            self.set_message(&msg, MessageType::Info);
+            self.set_message(&format_filter_message(tags), MessageType::Info);
         }
         self.update_selected_detail()
     }
@@ -263,24 +255,15 @@ impl App {
             return Ok(());
         };
 
-        let totp_secret = match TotpSecret::from_user_input(
-            totp_input.expose_secret(),
-            &cred.name,
-            "Vault"
-        ) {
+        let totp_secret = parse_totp_secret(totp_input.expose_secret(), &cred.name);
+        let totp_secret = match totp_secret {
             Ok(s) => s,
-            Err(e) => {
-                self.set_message(&format!("TOTP error: {}", e), MessageType::Error);
-                return Ok(());
-            }
+            Err(msg) => { self.set_message(&msg, MessageType::Error); return Ok(()); }
         };
-        
+
         let code = match totp::generate_totp(&totp_secret) {
             Ok(c) => c,
-            Err(e) => {
-                self.set_message(&format!("TOTP generation failed: {}", e), MessageType::Error);
-                return Ok(());
-            }
+            Err(e) => { self.set_message(&format!("TOTP generation failed: {}", e), MessageType::Error); return Ok(()); }
         };
         
         let remaining = totp::time_remaining(&totp_secret);
@@ -299,24 +282,15 @@ impl App {
             return Ok(());
         };
 
-        let totp_secret = match TotpSecret::from_user_input(
-            totp_input.expose_secret(),
-            &cred.name,
-            "Vault"
-        ) {
+        let totp_secret = parse_totp_secret(totp_input.expose_secret(), &cred.name);
+        let totp_secret = match totp_secret {
             Ok(s) => s,
-            Err(e) => {
-                self.set_message(&format!("TOTP error: {}", e), MessageType::Error);
-                return Ok(());
-            }
+            Err(msg) => { self.set_message(&msg, MessageType::Error); return Ok(()); }
         };
-        
+
         let uri = match totp_secret.to_uri() {
             Ok(u) => u,
-            Err(e) => {
-                self.set_message(&format!("Failed to generate URI: {}", e), MessageType::Error);
-                return Ok(());
-            }
+            Err(e) => { self.set_message(&format!("Failed to generate URI: {}", e), MessageType::Error); return Ok(()); }
         };
 
         let (id, name, username) = (cred.id.clone(), cred.name.clone(), cred.username.clone());
@@ -425,6 +399,30 @@ impl App {
         self.export_dialog = None;
         self.mode_state.enter_normal_mode();
     }
+}
+
+fn parse_totp_secret(input: &str, name: &str) -> Result<TotpSecret, String> {
+    TotpSecret::from_user_input(input, name, "Vault")
+        .map_err(|e| format!("TOTP error: {}", e))
+}
+
+fn apply_search_filter(results: &mut Vec<Credential>, query: &str) {
+    if query.is_empty() {
+        return;
+    }
+    let query_lower = query.to_lowercase();
+    results.retain(|c| {
+        c.name.to_lowercase().contains(&query_lower)
+            || c.username.as_ref().is_some_and(|u| u.to_lowercase().contains(&query_lower))
+            || c.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+    });
+}
+
+fn format_filter_message(tags: &[String]) -> String {
+    if tags.len() == 1 {
+        return format!("Filtered by tag: {}", tags[0]);
+    }
+    format!("Filtered by tags: {}", tags.join(", "))
 }
 
 pub fn credential_to_item(cred: &Credential) -> CredentialItem {

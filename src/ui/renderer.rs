@@ -156,20 +156,22 @@ fn render_detail_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
 fn render_detail_panel(frame: &mut Frame, area: Rect, detail: Option<&CredentialDetail>) {
     match detail {
         Some(d) => frame.render_widget(DetailView::new(d), area),
-        None => {
-            let block = Block::default()
-                .title(" Detail ")
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(Color::DarkGray));
-            frame.render_widget(
-                EmptyState::new("No credential selected")
-                    .hint("Select from list or press 'n' to add")
-                    .block(block),
-                area
-            );
-        }
+        None => render_empty_detail_panel(frame, area),
     }
+}
+
+fn render_empty_detail_panel(frame: &mut Frame, area: Rect) {
+    let block = Block::default()
+        .title(" Detail ")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::DarkGray));
+    frame.render_widget(
+        EmptyState::new("No credential selected")
+            .hint("Select from list or press 'n' to add")
+            .block(block),
+        area,
+    );
 }
 
 fn create_credentials_block(border_color: Color) -> Block<'static> {

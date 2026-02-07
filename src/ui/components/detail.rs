@@ -105,6 +105,16 @@ fn render_strength_field(buf: &mut Buffer, x: u16, y: &mut u16, width: u16, secr
     ]);
 }
 
+fn render_secret_and_strength(buf: &mut Buffer, x: u16, y: &mut u16, width: u16, secret: &str, detail: &CredentialDetail) {
+    if secret.is_empty() {
+        return;
+    }
+    render_secret_field(buf, x, y, width, secret, detail.secret_visible);
+    if detail.credential_type == CredentialType::Password {
+        render_strength_field(buf, x, y, width, secret);
+    }
+}
+
 fn render_totp_field(buf: &mut Buffer, x: u16, y: &mut u16, width: u16, code: &str, remaining: u64) {
     render_field(buf, x, y, width, "TOTP", &[
         Span::styled(code, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
@@ -177,13 +187,9 @@ impl<'a> Widget for DetailView<'a> {
             render_username_field(buf, inner.x, &mut y, inner.width, username);
         }
 
-        if let Some(ref secret) = self.detail.secret
-            && !secret.is_empty() {
-                render_secret_field(buf, inner.x, &mut y, inner.width, secret, self.detail.secret_visible);
-                if self.detail.credential_type == CredentialType::Password {
-                    render_strength_field(buf, inner.x, &mut y, inner.width, secret);
-                }
-            }
+        if let Some(ref secret) = self.detail.secret {
+            render_secret_and_strength(buf, inner.x, &mut y, inner.width, secret, self.detail);
+        }
 
         if let (Some(code), Some(remaining)) = (&self.detail.totp_code, self.detail.totp_remaining) {
             render_totp_field(buf, inner.x, &mut y, inner.width, code, remaining);

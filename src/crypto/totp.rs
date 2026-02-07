@@ -175,7 +175,7 @@ fn pad_secret_bytes(mut bytes: Vec<u8>) -> Vec<u8> {
     let original = bytes.clone();
     while bytes.len() < MIN_BYTES {
         for &b in &original {
-            if bytes.len() >= MIN_BYTES { break }
+            if bytes.len() >= MIN_BYTES { break; }
             bytes.push(b);
         }
     }

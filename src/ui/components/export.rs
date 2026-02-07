@@ -172,14 +172,10 @@ impl ExportDialog {
     }
 
     pub fn handle_text_key(&mut self, code: KeyCode, mods: KeyModifiers) {
-        match self.active_field {
-            ExportField::Passphrase if self.needs_passphrase() => {
-                handle_text_key(&mut self.passphrase, code, mods);
-            }
-            ExportField::Path => {
-                handle_text_key(&mut self.path, code, mods);
-            }
-            _ => {}
+        if self.active_field == ExportField::Passphrase && self.needs_passphrase() {
+            handle_text_key(&mut self.passphrase, code, mods);
+        } else if self.active_field == ExportField::Path {
+            handle_text_key(&mut self.path, code, mods);
         }
     }
 

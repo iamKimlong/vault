@@ -36,11 +36,9 @@ impl TagsState {
         self.selected = 0;
         self.selected_tags.clear();
         
-        // Pre-select tags that are currently being filtered
-        if let Some(filter_tags) = active_filter {
-            for tag in filter_tags {
-                self.selected_tags.insert(tag.clone());
-            }
+        let Some(filter_tags) = active_filter else { return };
+        for tag in filter_tags {
+            self.selected_tags.insert(tag.clone());
         }
     }
 

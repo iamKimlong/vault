@@ -31,25 +31,26 @@ pub fn init_schema(conn: &Connection) -> DbResult<()> {
 
 fn migrate_schema(conn: &Connection) -> DbResult<()> {
     let version = get_schema_version(conn).unwrap_or(0);
-    
-    if version < 3 {
-        // Add TOTP column if it doesn't exist
-        let has_totp_column: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM pragma_table_info('credentials') WHERE name='encrypted_totp_secret'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
-        
-        if !has_totp_column {
-            conn.execute("ALTER TABLE credentials ADD COLUMN encrypted_totp_secret TEXT", [])?;
-        }
-        
-        conn.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('schema_version', '3')", [])?;
+    if version >= 3 {
+        return Ok(());
     }
-    
+    migrate_to_v3(conn)
+}
+
+fn migrate_to_v3(conn: &Connection) -> DbResult<()> {
+    if !has_column(conn, "credentials", "encrypted_totp_secret") {
+        conn.execute("ALTER TABLE credentials ADD COLUMN encrypted_totp_secret TEXT", [])?;
+    }
+    conn.execute("INSERT OR REPLACE INTO metadata (key, value) VALUES ('schema_version', '3')", [])?;
     Ok(())
+}
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> bool {
+    let sql = format!(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('{}') WHERE name='{}'",
+        table, column
+    );
+    conn.query_row(&sql, [], |row| row.get(0)).unwrap_or(false)
 }
 
 /// Create the full schema

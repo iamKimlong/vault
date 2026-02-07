@@ -248,14 +248,7 @@ impl<'a> EmptyState<'a> {
 
 impl<'a> Widget for EmptyState<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let inner = match &self.block {
-            Some(block) => {
-                let inner = block.inner(area);
-                block.clone().render(area, buf);
-                inner
-            }
-            None => area,
-        };
+        let inner = render_optional_block(area, buf, &self.block);
 
         let center_y = inner.y + inner.height / 2;
         let msg_x = center_x(&inner, self.message.len());
@@ -266,6 +259,13 @@ impl<'a> Widget for EmptyState<'a> {
 
 fn center_x(area: &Rect, text_len: usize) -> u16 {
     area.x + (area.width.saturating_sub(text_len as u16)) / 2
+}
+
+fn render_optional_block(area: Rect, buf: &mut Buffer, block: &Option<Block>) -> Rect {
+    let Some(block) = block else { return area };
+    let inner = block.inner(area);
+    block.clone().render(area, buf);
+    inner
 }
 
 fn render_optional_hint(buf: &mut Buffer, area: &Rect, center_y: u16, hint: Option<&str>) {

@@ -209,20 +209,16 @@ impl CredentialForm {
             self.scroll_offset = self.active_field;
             return;
         }
-
         let value_width = 49usize;
-
-        loop {
-            let visible = count_visible_fields(&self.fields, self.scroll_offset, total_height, value_width);
-            if self.active_field < self.scroll_offset + visible {
-                break;
-            }
-            self.scroll_offset += 1;
-            if self.scroll_offset > self.active_field {
-                self.scroll_offset = self.active_field;
-                break;
-            }
+        while !self.is_field_visible(total_height, value_width) {
+            self.scroll_offset = (self.scroll_offset + 1).min(self.active_field);
+            if self.scroll_offset == self.active_field { return; }
         }
+    }
+
+    fn is_field_visible(&self, total_height: u16, value_width: usize) -> bool {
+        let visible = count_visible_fields(&self.fields, self.scroll_offset, total_height, value_width);
+        self.active_field < self.scroll_offset + visible
     }
 
     pub fn next_field(&mut self, area_height: u16) {
@@ -269,12 +265,13 @@ impl CredentialForm {
             return;
         }
         let mut buf = self.active_buffer();
-        if handle_text_key(&mut buf, code, mods) {
-            let is_multiline = self.active_field().field_type == FieldType::MultiLine;
-            self.apply_buffer(buf);
-            if is_multiline {
-                self.ensure_visible(Self::form_inner_height(area_height));
-            }
+        if !handle_text_key(&mut buf, code, mods) {
+            return;
+        }
+        let is_multiline = self.active_field().field_type == FieldType::MultiLine;
+        self.apply_buffer(buf);
+        if is_multiline {
+            self.ensure_visible(Self::form_inner_height(area_height));
         }
     }
 
@@ -398,6 +395,18 @@ fn field_background_style(is_active: bool) -> Style {
     } else {
         Style::default()
     }
+}
+
+fn find_cursor_line(line_starts: &[usize], cursor_pos: usize) -> usize {
+    for (i, &start) in line_starts.iter().enumerate() {
+        if i + 1 >= line_starts.len() {
+            return i;
+        }
+        if cursor_pos >= start && cursor_pos < line_starts[i + 1] {
+            return i;
+        }
+    }
+    0
 }
 
 fn fill_field_background(buf: &mut Buffer, x: u16, y: u16, width: u16, style: Style) {
@@ -567,17 +576,7 @@ fn render_multiline_field(
 
     // Find which wrapped line the cursor is on
     let cursor_pos = if is_active { form.cursor } else { 0 };
-    let mut cursor_line: usize = 0;
-    for (i, &start) in line_starts.iter().enumerate() {
-        if i + 1 < line_starts.len() {
-            if cursor_pos >= start && cursor_pos < line_starts[i + 1] {
-                cursor_line = i;
-                break;
-            }
-        } else {
-            cursor_line = i;
-        }
-    }
+    let cursor_line = find_cursor_line(&line_starts, cursor_pos);
 
     // Use form's multiline_scroll, auto-adjust to keep cursor visible
     let scroll = if is_active {
@@ -612,10 +611,7 @@ fn render_multiline_field(
         if (cursor_row as u16) < visible_lines {
             let cx = x + cursor_in_line as u16;
             let cy = y + cursor_row as u16;
-            if cx < x + width
-                && let Some(cell) = buf.cell_mut((cx, cy)) {
-                    cell.set_style(Style::default().bg(Color::White).fg(Color::Black));
-                }
+            render_cursor(buf, cx, cy, x + width);
         }
     }
 
