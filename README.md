@@ -98,13 +98,18 @@ vault
 | `j/k` or `↓/↑` | Navigate up/down |
 | `gg` | Go to top |
 | `G` | Go to bottom |
+| `Ctrl+d` | Half page down |
+| `Ctrl+u` | Half page up |
+| `Ctrl+f` | Page down |
+| `Ctrl+b` | Page up |
 | `Enter` | View details |
 | `n` | New credential |
 | `e` | Edit credential |
-| `dd` | Delete credential |
+| `dd/x` | Delete credential |
 | `yy/c` | Copy password |
 | `u` | Copy username |
-| `T` | Copy TOTP |
+| `T` | Copy TOTP code |
+| `Ctrl+t` | Copy TOTP secret |
 | `Ctrl+s` | Toggle password visibility |
 | `Ctrl+p` | Change master key |
 | `Ctrl+l` | Clear message |
