@@ -14,7 +14,7 @@ Self-hosted, local-first architecture - your credentials never touch our servers
 - **Secure Storage:** Per-credential encryption with ChaCha20-Poly1305 AEAD
 - **Strong Key Derivation:** Argon2id with 19 MiB memory cost
 - **Hierarchical Keys:** Master Key wraps DEK (Data Encryption Key), DEK encrypts credentials - enables password changes without re-encrypting data
-    - **Master key** → **DEK (wrapped)** → **Credential keys**
+    - **Master key** → **DEK (wrapped)** → **Credential keys (encrypted)**
 - **Full-Text Search:** SQLite FTS5 for fast search
 - **Search or filter by project/tag:** Organize your credentials and keys via tagging
 - **Vim Keybindings:** Modal editing with hjkl navigation
