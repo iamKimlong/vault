@@ -124,6 +124,14 @@ impl ModeState {
         self.buffer.cursor_right();
     }
 
+    pub fn cursor_word_left(&mut self) {
+        self.buffer.cursor_word_left();
+    }
+
+    pub fn cursor_word_right(&mut self) {
+        self.buffer.cursor_word_right();
+    }
+
     pub fn cursor_home(&mut self) {
         self.buffer.cursor_home();
     }

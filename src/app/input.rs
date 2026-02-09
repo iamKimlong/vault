@@ -70,6 +70,8 @@ impl App {
             Action::DeleteWord => { self.mode_state.delete_word(); Action::None }
             Action::CursorLeft => { self.mode_state.cursor_left(); Action::None }
             Action::CursorRight => { self.mode_state.cursor_right(); Action::None }
+            Action::CursorWordLeft => { self.mode_state.cursor_word_left(); Action::None }
+            Action::CursorWordRight => { self.mode_state.cursor_word_right(); Action::None }
             Action::CursorHome => { self.mode_state.cursor_home(); Action::None }
             Action::CursorEnd => { self.mode_state.cursor_end(); Action::None }
             Action::ClearToStart => { self.mode_state.clear_to_start(); Action::None }

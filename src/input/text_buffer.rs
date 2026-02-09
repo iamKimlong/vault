@@ -20,6 +20,8 @@ pub trait TextEditing {
     fn clear(&mut self);
     fn cursor_left(&mut self);
     fn cursor_right(&mut self);
+    fn cursor_word_left(&mut self);
+    fn cursor_word_right(&mut self);
     fn cursor_home(&mut self);
     fn cursor_end(&mut self);
     fn len(&self) -> usize;
@@ -35,6 +37,8 @@ pub fn handle_text_key<T: TextEditing>(buf: &mut T, code: KeyCode, mods: KeyModi
         (KeyCode::Char('a'), KeyModifiers::CONTROL) => buf.cursor_home(),
         (KeyCode::Char('e'), KeyModifiers::CONTROL) => buf.cursor_end(),
         (KeyCode::Char('u'), KeyModifiers::CONTROL) => buf.clear_to_start(),
+        (KeyCode::Left, KeyModifiers::ALT) => buf.cursor_word_left(),
+        (KeyCode::Right, KeyModifiers::ALT) => buf.cursor_word_right(),
         (KeyCode::Left, _) => buf.cursor_left(),
         (KeyCode::Right, _) => buf.cursor_right(),
         (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => buf.insert_char(c),
@@ -69,6 +73,34 @@ pub fn find_word_boundary_back(s: &str, from: usize) -> usize {
             pos -= 1;
         }
     }
+    pos
+}
+
+pub fn find_word_boundary_forward(s: &str, from: usize) -> usize {
+    let chars: Vec<char> = s.chars().collect();
+    let len = chars.len();
+    let mut pos = from;
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+
+    if pos >= len {
+        return len;
+    }
+
+    // Skip current word/punct chars, then whitespace
+    if is_word(chars[pos]) {
+        while pos < len && is_word(chars[pos]) {
+            pos += 1;
+        }
+    } else if !chars[pos].is_whitespace() {
+        while pos < len && !chars[pos].is_whitespace() && !is_word(chars[pos]) {
+            pos += 1;
+        }
+    }
+
+    while pos < len && chars[pos].is_whitespace() {
+        pos += 1;
+    }
+
     pos
 }
 
@@ -172,6 +204,14 @@ impl TextEditing for TextBuffer {
         if self.cursor < self.content.len() {
             self.cursor += 1;
         }
+    }
+
+    fn cursor_word_left(&mut self) {
+        self.cursor = find_word_boundary_back(&self.content, self.cursor);
+    }
+
+    fn cursor_word_right(&mut self) {
+        self.cursor = find_word_boundary_forward(&self.content, self.cursor);
     }
 
     fn cursor_home(&mut self) {
@@ -289,6 +329,14 @@ impl TextEditing for SecureTextBuffer {
         if self.cursor < self.content.len() {
             self.cursor += 1;
         }
+    }
+
+    fn cursor_word_left(&mut self) {
+        self.cursor = find_word_boundary_back(&self.content, self.cursor);
+    }
+
+    fn cursor_word_right(&mut self) {
+        self.cursor = find_word_boundary_forward(&self.content, self.cursor);
     }
 
     fn cursor_home(&mut self) {
