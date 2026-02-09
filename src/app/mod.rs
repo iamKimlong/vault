@@ -11,10 +11,12 @@ mod input;
 use std::time::{Duration, Instant};
 
 use ratatui::{layout::Rect, Frame};
+use crossterm::event::MouseEvent;
 
 use crate::db::models::Credential;
 use crate::db::AuditAction;
 use crate::input::modes::ModeState;
+use crate::input::keymap::{mouse_action, Action};
 use crate::ui::components::help::HelpState;
 use crate::ui::components::logs::LogsState;
 use crate::ui::components::tags::TagsState;
@@ -30,11 +32,19 @@ use crate::vault::Vault;
 
 pub use config::{AppConfig, PendingAction};
 
+#[derive(Default)]
+pub struct ClickState {
+    last_index: Option<usize>,
+    last_time: Option<Instant>,
+}
+
 pub struct App {
     pub config: AppConfig,
     pub vault: Vault,
     pub mode_state: ModeState,
     pub view: View,
+    pub list_area: Option<Rect>,
+    pub click_state: ClickState,
     pub terminal_size: Rect,
     pub list_state: ListViewState,
     pub credentials: Vec<Credential>,
@@ -66,6 +76,8 @@ impl App {
             config,
             mode_state: ModeState::new(),
             view: View::List,
+            list_area: None,
+            click_state: ClickState::default(),
             terminal_size: Rect::default(),
             list_state: ListViewState::new(),
             credentials: Vec::new(),
@@ -87,6 +99,54 @@ impl App {
             tags_state: TagsState::new(),
             export_dialog: None,
         }
+    }
+
+        pub fn handle_mouse_event(&mut self, event: MouseEvent) -> bool {
+        let action = mouse_action(event);
+        let Action::Click(col, row) = action else {
+            let _ = self.execute_action(action);
+            return false;
+        };
+        self.handle_click(col, row)
+    }
+
+    fn handle_click(&mut self, col: u16, row: u16) -> bool {
+        let Some(index) = self.hit_test_list(col, row) else {
+            return false;
+        };
+
+        let is_double = self.is_double_click(index);
+        self.click_state.last_index = Some(index);
+        self.click_state.last_time = Some(Instant::now());
+
+        self.list_state.select(Some(index));
+        let _ = self.update_selected_detail();
+
+        if is_double {
+            let _ = self.select_credential();
+        }
+
+        false
+    }
+
+    fn hit_test_list(&self, col: u16, row: u16) -> Option<usize> {
+        let area = self.list_area?;
+        if col < area.x || col >= area.x + area.width {
+            return None;
+        }
+        if row <= area.y || row >= area.y + area.height - 1 {
+            return None;
+        }
+        let offset = self.list_state.list_state_ref().offset();
+        let index = offset + (row - area.y - 1) as usize;
+        if index >= self.credentials.len() { return None; }
+        Some(index)
+    }
+
+    fn is_double_click(&self, index: usize) -> bool {
+        let Some(last_index) = self.click_state.last_index else { return false };
+        let Some(last_time) = self.click_state.last_time else { return false };
+        last_index == index && last_time.elapsed() < Duration::from_millis(300)
     }
 
     pub fn needs_init(&self) -> bool {
@@ -207,6 +267,7 @@ impl App {
             mode: self.mode_state.mode,
             credentials: &self.credential_items,
             list_state: &mut self.list_state,
+            list_area: &mut self.list_area,
             selected_detail: self.selected_detail.as_ref(),
             search_query: self.search_query.as_deref(),
             filter_tags: self.filter_tags.as_deref(),

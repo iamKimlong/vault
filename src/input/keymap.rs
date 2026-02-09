@@ -2,7 +2,7 @@
 //!
 //! Vim-style key bindings mapped to actions.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind, MouseButton};
 
 /// Actions that can be triggered by key presses
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +16,7 @@ pub enum Action {
     PageDown,
     HalfPageUp,
     HalfPageDown,
+    Click(u16, u16),
 
     // Selection
     Select,
@@ -169,6 +170,17 @@ pub fn confirm_action(key: KeyEvent) -> Action {
     match key.code {
         KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => Action::Confirm,
         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => Action::Cancel,
+        _ => Action::None,
+    }
+}
+
+/// Map mouse event to action
+pub fn mouse_action(event: MouseEvent) -> Action {
+    match event.kind {
+        MouseEventKind::ScrollUp => Action::MoveUp,
+        MouseEventKind::ScrollDown => Action::MoveDown,
+        MouseEventKind::Down(MouseButton::Left) => Action::Click(event.column, event.row),
+        MouseEventKind::Down(MouseButton::Right) => Action::Back,
         _ => Action::None,
     }
 }

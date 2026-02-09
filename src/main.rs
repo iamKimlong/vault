@@ -88,13 +88,20 @@ fn run_with_auth(terminal: &mut Term, app: &mut App) -> Result<(), Box<dyn std::
     Ok(())
 }
 
-fn poll_key_press() -> Result<Option<KeyEvent>, Box<dyn std::error::Error>> {
+enum AppEvent {
+    Key(KeyEvent),
+    Mouse(crossterm::event::MouseEvent),
+}
+
+fn poll_event() -> Result<Option<AppEvent>, Box<dyn std::error::Error>> {
     if !event::poll(Duration::from_millis(100))? {
         return Ok(None);
     }
-    let Event::Key(key) = event::read()? else { return Ok(None) };
-    if key.kind != KeyEventKind::Press { return Ok(None) }
-    Ok(Some(key))
+    match event::read()? {
+        Event::Key(key) if key.kind == KeyEventKind::Press => Ok(Some(AppEvent::Key(key))),
+        Event::Mouse(mouse) => Ok(Some(AppEvent::Mouse(mouse))),
+        _ => Ok(None),
+    }
 }
 
 fn draw_password_dialog(
@@ -147,7 +154,7 @@ fn init_iteration(terminal: &mut Term, app: &mut App, state: &mut InitState) -> 
     let (title, prompt, field) = init_dialog_params(state.confirming, &state.password, &state.confirm);
     draw_password_dialog(terminal, title, prompt, field, state.error.as_deref())?;
 
-    let Some(key) = poll_key_press()? else { return Ok(()) };
+    let Some(AppEvent::Key(key)) = poll_event()? else { return Ok(()) };
 
     handle_init_key(key, state, app);
     Ok(())
@@ -237,9 +244,9 @@ struct UnlockState {
 
 
 fn unlock_iteration(terminal: &mut Term, app: &mut App, state: &mut UnlockState) -> Result<(), Box<dyn std::error::Error>> {
-    draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
+    draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
 
-    let Some(key) = poll_key_press()? else { return Ok(()) };
+    let Some(AppEvent::Key(key)) = poll_event()? else { return Ok(()) };
 
     handle_unlock_key(key, state, app);
     Ok(())
@@ -332,7 +339,7 @@ fn change_iteration(terminal: &mut Term, app: &mut App, state: &mut PasswordChan
     let (prompt, field) = change_prompt_and_field(state);
     draw_password_dialog(terminal, " Change Master Key ", prompt, field, state.error.as_deref())?;
 
-    let Some(key) = poll_key_press()? else { return Ok(ChangeResult::Continue) };
+    let Some(AppEvent::Key(key)) = poll_event()? else { return Ok(ChangeResult::Continue) };
 
     Ok(handle_change_key(key, state, &mut app.vault))
 }
@@ -433,13 +440,16 @@ fn app_iteration(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std
 }
 
 fn process_app_input(terminal: &mut Term, app: &mut App) -> Result<bool, Box<dyn std::error::Error>> {
-    let Some(key) = poll_key_press()? else { return Ok(false) };
+    let Some(ev) = poll_event()? else { return Ok(false) };
 
     app.vault.update_activity();
 
-    if app.handle_key_event(key)? {
-        return Ok(true);
-    }
+    let quit = match ev {
+        AppEvent::Key(key) => app.handle_key_event(key)?,
+        AppEvent::Mouse(mouse) => app.handle_mouse_event(mouse),
+    };
+
+    if quit { return Ok(true); }
 
     handle_password_change_request(terminal, app)?;
     Ok(false)

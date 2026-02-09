@@ -35,6 +35,10 @@ impl ListViewState {
         Self::default()
     }
 
+    pub fn list_state_ref(&self) -> &ListState {
+        &self.list_state
+    }
+
     pub fn select(&mut self, index: Option<usize>) {
         self.selected = index;
         self.list_state.select(index);

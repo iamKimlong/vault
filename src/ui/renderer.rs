@@ -32,6 +32,7 @@ pub struct UiState<'a> {
     pub mode: InputMode,
     pub credentials: &'a [CredentialItem],
     pub list_state: &'a mut ListViewState,
+    pub list_area: &'a mut Option<Rect>,
     pub selected_detail: Option<&'a CredentialDetail>,
     pub search_query: Option<&'a str>,
     pub filter_tags: Option<&'a [String]>,
@@ -125,6 +126,8 @@ fn render_help_bar(frame: &mut Frame, area: Rect, mode: InputMode) {
 }
 
 fn render_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
+    *state.list_area = Some(area);
+
     if state.credentials.is_empty() {
         let empty = EmptyState::new("No credentials found")
             .hint("Press 'n' to add one");
@@ -149,6 +152,8 @@ fn render_detail(frame: &mut Frame, area: Rect, state: &mut UiState) {
 }
 
 fn render_detail_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
+    *state.list_area = Some(area);
+
     let block = create_credentials_block(Color::DarkGray);
     let list = CredentialList::new(state.credentials).block(block);
     frame.render_stateful_widget(list, area, state.list_state);

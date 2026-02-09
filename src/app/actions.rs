@@ -114,7 +114,7 @@ impl App {
         }
     }
 
-    fn select_credential(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn select_credential(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let Some(cred) = &self.selected_credential else {
             return Ok(());
         };
