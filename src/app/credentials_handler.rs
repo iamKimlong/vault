@@ -271,7 +271,7 @@ impl App {
 
         super::clipboard::copy_with_timeout(&code, self.config.clipboard_timeout);
         self.log_audit(AuditAction::Copy, Some(&id), Some(&name), username.as_deref(), Some("TOTP"))?;
-        self.set_message(&format!("TOTP: {} ({}s remaining)", code, remaining), MessageType::Success);
+        self.set_message(&format!("TOTP copied: {} ({}s remaining)", code, remaining), MessageType::Success);
         Ok(())
     }
 

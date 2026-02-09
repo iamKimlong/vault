@@ -138,9 +138,10 @@ fn render_list(frame: &mut Frame, area: Rect, state: &mut UiState) {
 }
 
 fn render_detail(frame: &mut Frame, area: Rect, state: &mut UiState) {
+    let half = area.width / 2;
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([Constraint::Length(half), Constraint::Fill(1)])
         .split(area);
 
     render_detail_list(frame, chunks[0], state);
