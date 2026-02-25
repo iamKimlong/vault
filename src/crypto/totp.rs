@@ -80,7 +80,8 @@ impl TotpSecret {
 
     /// Parse from otpauth:// URI
     fn from_uri(uri: &str) -> CryptoResult<Self> {
-        let totp = TOTP::from_url(uri).map_err(|e| CryptoError::TotpFailed(e.to_string()))?;
+        let totp = TOTP::from_url(normalize_otpauth_uri(uri))
+            .map_err(|e| CryptoError::TotpFailed(e.to_string()))?;
 
         let algorithm = match totp.algorithm {
             Algorithm::SHA1 => TotpAlgorithm::SHA1,
@@ -89,7 +90,7 @@ impl TotpSecret {
         };
 
         Ok(Self {
-            secret: totp.get_secret_base32(),
+            secret: normalize_base32(&totp.get_secret_base32()),
             account: totp.account_name.clone(),
             issuer: totp.issuer.clone().unwrap_or_default(),
             digits: totp.digits,
@@ -106,20 +107,16 @@ impl TotpSecret {
 
     fn build_totp(&self) -> CryptoResult<TOTP> {
         let secret_bytes = self.decode_secret()?;
-        
-        // Pad to 128 bits (16 bytes) if needed - totp-rs requirement
-        let padded_bytes = pad_secret_bytes(secret_bytes);
-        
-        TOTP::new(
+
+        Ok(TOTP::new_unchecked(
             self.algorithm.into(),
             self.digits,
             1,
             self.period,
-            padded_bytes,
+            secret_bytes,
             Some(self.issuer.clone()),
             self.account.clone(),
-        )
-        .map_err(|e| CryptoError::TotpFailed(e.to_string()))
+        ))
     }
 
     fn decode_secret(&self) -> CryptoResult<Vec<u8>> {
@@ -129,11 +126,67 @@ impl TotpSecret {
     }
 }
 
+fn normalize_otpauth_uri(uri: &str) -> String {
+    let mut result = normalize_uri_secret(uri);
+    result = align_uri_issuer(result);
+    result
+}
+
+fn normalize_uri_secret(uri: &str) -> String {
+    let Some(secret_start) = uri.find("secret=") else {
+        return uri.to_string();
+    };
+    let value_start = secret_start + 7;
+    let value_end = uri[value_start..].find('&').map_or(uri.len(), |i| value_start + i);
+
+    let raw_secret = &uri[value_start..value_end];
+    let normalized = normalize_base32(raw_secret);
+
+    format!("{}{}{}", &uri[..value_start], normalized, &uri[value_end..])
+}
+
+fn align_uri_issuer(uri: String) -> String {
+    let issuer = extract_uri_param(&uri, "issuer");
+    let Some(issuer) = issuer else {
+        return uri;
+    };
+
+    let Some(path_start) = uri.find("//totp/") else {
+        return uri;
+    };
+    let label_start = path_start + 7;
+    let query_start = uri[label_start..].find('?').map_or(uri.len(), |i| label_start + i);
+    let label = &uri[label_start..query_start];
+
+    if !label.contains(':') && !label.contains("%3A") {
+        return uri;
+    }
+
+    let account = label.splitn(2, [':', '%']).last().unwrap_or(label);
+    let account = account.trim_start_matches("3A").trim_start_matches("3a");
+
+    format!(
+        "{}{}:{}{}",
+        &uri[..label_start],
+        issuer,
+        account,
+        &uri[query_start..]
+    )
+}
+
+fn extract_uri_param<'a>(uri: &'a str, key: &str) -> Option<&'a str> {
+    let search = format!("{}=", key);
+    let start = uri.find(&search)?;
+    let value_start = start + search.len();
+    let value_end = uri[value_start..].find('&').map_or(uri.len(), |i| value_start + i);
+    Some(&uri[value_start..value_end])
+}
+
 /// Normalize base32 input (remove spaces, dashes, convert to uppercase)
 fn normalize_base32(input: &str) -> String {
     input
         .chars()
-        .filter(|c| !c.is_whitespace() && *c != '-')
+        .filter(|c| !c.is_whitespace() && *c != '-' && *c != '=')
         .collect::<String>()
         .to_uppercase()
 }
@@ -151,7 +204,7 @@ fn validate_base32(secret: &str) -> CryptoResult<()> {
     }
 
     let valid_chars = secret.chars().all(|c| {
-        matches!(c, 'A'..='Z' | '2'..='7' | '=')
+        matches!(c, 'A'..='Z' | '2'..='7')
     });
     
     if !valid_chars {
@@ -161,26 +214,6 @@ fn validate_base32(secret: &str) -> CryptoResult<()> {
     }
 
     Ok(())
-}
-
-/// Pad secret bytes to minimum 128 bits (16 bytes) required by totp-rs
-fn pad_secret_bytes(mut bytes: Vec<u8>) -> Vec<u8> {
-    const MIN_BYTES: usize = 16; // 128 bits
-    
-    if bytes.len() >= MIN_BYTES {
-        return bytes;
-    }
-    
-    // Pad by repeating the secret (standard approach for short TOTP secrets)
-    let original = bytes.clone();
-    while bytes.len() < MIN_BYTES {
-        for &b in &original {
-            if bytes.len() >= MIN_BYTES { break; }
-            bytes.push(b);
-        }
-    }
-    
-    bytes
 }
 
 /// Generate current TOTP code
@@ -204,8 +237,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_short_secret_padded() {
-        // 16-char secret (80 bits) - common from many services
+    fn test_short_secret_no_padding() {
         let secret = TotpSecret::from_user_input(
             "JBSWY3DPEHPK3PXP",
             "test@example.com",
