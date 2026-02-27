@@ -244,7 +244,7 @@ struct UnlockState {
 
 
 fn unlock_iteration(terminal: &mut Term, app: &mut App, state: &mut UnlockState) -> Result<(), Box<dyn std::error::Error>> {
-    draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
+    draw_password_dialog(terminal, "  Unlock Vault ", "Enter master password:", &state.password, state.error.as_deref())?;
 
     let Some(AppEvent::Key(key)) = poll_event()? else { return Ok(()) };
 
@@ -337,7 +337,7 @@ fn run_password_change(terminal: &mut Term, app: &mut App) -> Result<bool, Box<d
 
 fn change_iteration(terminal: &mut Term, app: &mut App, state: &mut PasswordChangeState) -> Result<ChangeResult, Box<dyn std::error::Error>> {
     let (prompt, field) = change_prompt_and_field(state);
-    draw_password_dialog(terminal, " Change Master Key ", prompt, field, state.error.as_deref())?;
+    draw_password_dialog(terminal, "  Change Master Key ", prompt, field, state.error.as_deref())?;
 
     let Some(AppEvent::Key(key)) = poll_event()? else { return Ok(ChangeResult::Continue) };
 
